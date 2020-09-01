@@ -82,12 +82,12 @@ pub fn backward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emi
         }
     }
 
-    let mut backward = 0.0;
+    let mut backward_prob = 0.0;
     for ind_state in 0..num_states {
-        backward +=  backward_mat[[ind_state, 0]] * init_dist[ind_state] * emit_mat[[ind_state, obs[0] as usize]];
+        backward_prob +=  backward_mat[[ind_state, 0]] * init_dist[ind_state] * emit_mat[[ind_state, obs[0] as usize]];
     }
 
-    // backward
+    // backward_prob
     backward_mat
 }
 

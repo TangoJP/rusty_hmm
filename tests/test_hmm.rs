@@ -4,6 +4,41 @@ use ndarray::{Axis, arr2};
 
 #[test]
 // #[ignore]
+fn test_backward() {
+    // thinking coin flip with a normal (state 0) and fixed coin (state 1)
+    // assume observation 1 = head, 0 = tail
+    let obs = vec![0u8, 1u8, 1u8, 1u8, 0u8, 0u8, 0u8, 1u8, 1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8];
+    let mut init_dist = Vec::<f64>::new();
+    init_dist.push(0.65);
+    init_dist.push(0.35);
+
+    let trans_mat = arr2(&[
+        [0.6, 0.4],
+        [0.4, 0.6]
+    ]);
+    let emit_mat = arr2(&[
+        [0.5, 0.5],
+        [0.8, 0.2]
+    ]);
+
+    let backward_mat = hmm::backward(
+         &obs, 
+         &init_dist, 
+         &trans_mat, 
+         &emit_mat);
+    
+         let mut backward_prob = 0.0;
+         for ind_state in 0..init_dist.len() {
+             backward_prob +=  backward_mat[[ind_state, 0]] * init_dist[ind_state] * emit_mat[[ind_state, obs[0] as usize]];
+         }
+
+    println!("Backward Matrix with shape{:?}\n{:?}", backward_mat.shape(), backward_mat);
+    println!("Backward probability = {:?}", backward_prob);
+
+}
+
+#[test]
+#[ignore]
 fn test_viterbi() {
     // thinking coin flip with a normal (state 0) and fixed coin (state 1)
     // assume observation 1 = head, 0 = tail
@@ -79,3 +114,4 @@ fn test_forward() {
     println!("Forward probability = {:?}", forward_prob);
 
 }
+
