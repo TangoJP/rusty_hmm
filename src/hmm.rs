@@ -28,6 +28,7 @@ pub fn forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
 
 
     for ind_obs in 1..len_obs {                     // for each observation along the observations sequence
+        println!("PROCESSING {:?}/{:?} OBSERVATIONS", ind_obs + 1, len_obs);
         for ind_curr_state in 0..num_states {       // for each state
             // calculate the probability of seeing the observation obs[ind_obs] for state ind_current_state by summing the probabilities
             // of coming from each potential path.
@@ -48,7 +49,55 @@ pub fn forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
 }
 
 
+pub fn backward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> /*f64*/ {
+    let len_obs = obs.len();                    // length of observations
+    let num_states = trans_mat.shape()[0];      // number of possible states
+    let mut backward_mat = Array2::<f64>::zeros((num_states, len_obs));  // backward matrix
 
+    // if the shape doesn't match, raise exception
+    if emit_mat.shape()[0] != num_states {
+        panic!{"Number of rows in emit_mat does not match with that of trans_mat."}
+    };
+
+    // if sume along the row for emit_mat does not equal 1 { panic! }
+
+    // initialize
+    for ind_state in 0..num_states {
+        backward_mat[[ind_state, len_obs - 1]] = 1.0;
+    };
+
+
+    for ind_obs in (0..(len_obs - 1)).rev() {                     // for each observation along the observations sequence
+        println!("PROCESSING {:?}/{:?} REMANINING OBSERVATIONS", ind_obs + 1, len_obs);
+        for ind_curr_state in 0..num_states {       // for each state
+            // calculate the probability of seeing the observation obs[ind_obs] for state ind_current_state by summing the probabilities
+            //
+            let mut backward_temp = 0.0;             
+            for ind_next_state in 0..num_states{
+                let b_ = backward_mat[[ind_next_state, ind_obs + 1]] * trans_mat[[ind_curr_state, ind_next_state]] * emit_mat[[ind_next_state, obs[ind_obs+1] as usize]];
+                backward_temp += b_;
+            }
+
+            backward_mat[[ind_curr_state, ind_obs]] = backward_temp;
+        }
+    }
+
+    let mut backward = 0.0;
+    for ind_state in 0..num_states {
+        backward +=  backward_mat[[ind_state, 0]] * init_dist[ind_state] * emit_mat[[ind_state, obs[0] as usize]];
+    }
+
+    // backward
+    backward_mat
+}
+
+/// Calculate viterbi probability
+///
+/// INPUTS:
+/// obs: sequence of observations represented as indices in emit_mat
+/// init_dist: initial distribuition of states. it assumes its index corresponds to row index of trans_mat and emit_mat (for the former, both row & column indices)
+/// trans_mat: state transition matrix
+/// emit_mat: emission matrix. sates along the row, possible observations along the column
 pub fn viterbi(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> (Array2<f64>, Array2<usize>) /*f64*/ {
     let len_obs = obs.len();                    // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
@@ -103,6 +152,11 @@ pub fn viterbi(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
     (v_mat, bp_mat)
 }
 
+
+/// Traceback the backpointers on the backpointer matrix from Viterbi algorithm
+/// INPUTS:
+/// backpointer: Array2 containing the backpointers from Viterbi algo
+/// start: the last backpointer from Viterbi algorithm.
 pub fn traceback_viterbi(backpointer: &Array2<usize>, start: usize) -> Vec<usize> {
     let path_length = backpointer.shape()[1];
     let mut path = Vec::<usize>::with_capacity(path_length);
