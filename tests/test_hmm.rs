@@ -1,5 +1,51 @@
-use rusty_hmm::hmm;
+use rusty_hmm::{hmm, generative, utility};
 use ndarray::{Axis, arr2};
+
+
+#[test]
+// #[ignore]
+fn test_forward_backward() {
+    let num_seq = 1000;
+    let init_dist = vec![0.2, 0.5, 0.3];
+    let trans_mat = arr2(&[
+        [0.5, 0.25, 0.25],
+        [0.25, 0.5, 0.25],
+        [0.25, 0.25, 0.5]
+    ]);
+    let emit_mat = arr2(&[
+        [0.2, 0.2, 0.2, 0.2, 0.2],
+        [0.3, 0.05, 0.3, 0.05, 0.3],
+        [0.05, 0.425, 0.05, 0.425, 0.05]
+    ]);
+    
+    let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, num_seq);
+    let obs_seq = generative::generate_observation_sequence(&state_seq, &emit_mat);
+    
+    let mut obs = Vec::<u8>::new();
+    for o in obs_seq.iter() {
+        obs.push(*o as u8);
+    }
+
+    // run forward_backward with the 'actual' trans_mat and emit_mat
+    let iteration = 1;
+    let mut trans_mat_hat = trans_mat.clone();
+    let mut emit_mat_hat = emit_mat.clone();
+    let (a_hat, b_hat) = hmm::forward_backward(
+        &obs, 
+        &init_dist, 
+        &mut trans_mat_hat, 
+        &mut emit_mat_hat, 
+        iteration);
+    
+    println!("Actual trans_mat\n{:?}", trans_mat);
+    println!("Estimated trans_mat\n{:?}", a_hat);
+
+    println!("Actual emit_mat\n{:?}", emit_mat);
+    println!("Estimated emit_mat\n{:?}", b_hat);
+    
+}
+
+
 
 
 #[test]

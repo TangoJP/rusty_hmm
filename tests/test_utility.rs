@@ -1,11 +1,10 @@
-use rusty_hmm::utility;
-use rusty_hmm::generative;
+use rusty_hmm::{utility, generative};
 use std::vec::Vec;
 use std::collections::HashMap;
 use ndarray::arr2;
 
 #[test]
-// #[ignore]
+#[ignore]
 fn test_generate_observation_sequence() {
     let init_dist = vec![0.2, 0.5, 0.3];
     let trans_mat = arr2(&[

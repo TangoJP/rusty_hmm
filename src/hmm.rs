@@ -40,7 +40,7 @@ pub fn forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
 
 
     for ind_obs in 1..len_obs {                     // for each observation along the observations sequence
-        println!("PROCESSING {:?}/{:?} OBSERVATIONS", ind_obs + 1, len_obs);
+        // println!("FOWARD-PROCESSING {:?}/{:?} OBSERVATIONS", ind_obs + 1, len_obs);
         for ind_curr_state in 0..num_states {       // for each state
             // calculate the probability of seeing the observation obs[ind_obs] for state ind_current_state by summing the probabilities
             // of coming from each potential path.
@@ -82,7 +82,7 @@ pub fn backward(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -
 
 
     for ind_obs in (0..(len_obs - 1)).rev() {                     // for each observation along the observations sequence
-        println!("PROCESSING {:?}/{:?} REMANINING OBSERVATIONS", ind_obs + 1, len_obs);
+        // println!("BACKWARD-PROCESSING {:?}/{:?} REMANINING OBSERVATIONS", ind_obs + 1, len_obs);
         for ind_curr_state in 0..num_states {       // for each state
             // calculate the probability of seeing the observation obs[ind_obs] for state ind_current_state by summing the probabilities
             //
@@ -117,7 +117,7 @@ pub fn get_backward_prob(
 /// INPUTS:
 /// 
 pub fn forward_backward(
-    obs:&Vec<u8>, init_dist: &mut Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Array2<f64>, Array2<f64>) {
+    obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Array2<f64>, Array2<f64>) {
     
     if trans_mat.shape()[0] != trans_mat.shape()[1] {
         panic!("trans_mat must be a square matrix with the same number of rows and columns.")
@@ -144,6 +144,7 @@ pub fn forward_backward(
 
 
     while (convergence > CONVERGENCE_TOLERANCE) && (iter_counter < max_iter) {
+        println!("Iteration {:?}/{:?}", iter_counter + 1, max_iter);
         let alpha = forward(obs, init_dist, trans_mat, emit_mat);       // compute forward matrix
         let beta = backward(obs, trans_mat, emit_mat);                  // compute backword matrix
         let prob_obs_model = get_forward_prob(&alpha);      // Prob of obs given the model as forward prob of the whole utterance
