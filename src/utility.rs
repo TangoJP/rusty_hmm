@@ -32,7 +32,7 @@ pub fn calculate_array2_elementwise_cumulative_sum(array: &Array2<f64>, ind_row:
 }
 
 // Randomly pick a state (i.e. index in the original prob vector) using the cumulative prob vector.
-pub fn pick_a_state_from_cumulative_prob_vector(cumu_prob_vector: &Vec<f64>) -> usize {
+pub fn pick_index_from_cumulative_prob_vector(cumu_prob_vector: &Vec<f64>) -> usize {
     if cumu_prob_vector[cumu_prob_vector.len() - 1] != 1.0 {
         panic!("Cumulative probability does not sum up to 1.0.")
     }
