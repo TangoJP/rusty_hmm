@@ -23,14 +23,15 @@ fn test_backward() {
 
     let backward_mat = hmm::backward(
          &obs, 
-         &init_dist, 
          &trans_mat, 
          &emit_mat);
     
-         let mut backward_prob = 0.0;
-         for ind_state in 0..init_dist.len() {
-             backward_prob +=  backward_mat[[ind_state, 0]] * init_dist[ind_state] * emit_mat[[ind_state, obs[0] as usize]];
-         }
+         let backward_prob = hmm::get_backward_prob(
+            &backward_mat, 
+            &obs,
+            &init_dist,
+            &emit_mat
+         );
 
     println!("Backward Matrix with shape{:?}\n{:?}", backward_mat.shape(), backward_mat);
     println!("Backward probability = {:?}", backward_prob);
