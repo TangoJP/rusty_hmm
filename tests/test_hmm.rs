@@ -3,7 +3,7 @@ use ndarray::{Axis, arr2};
 
 
 #[test]
-// #[ignore]
+#[ignore]
 fn test_backward() {
     // thinking coin flip with a normal (state 0) and fixed coin (state 1)
     // assume observation 1 = head, 0 = tail
