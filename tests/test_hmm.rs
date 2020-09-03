@@ -3,19 +3,19 @@ use ndarray::{Axis, arr2};
 
 
 #[test]
-// #[ignore]
+#[ignore]
 fn test_forward_backward() {
-    let num_seq = 1000;
-    let init_dist = vec![0.2, 0.5, 0.3];
+    let num_seq = 100;
+    let init_dist = vec![0.4, 0.3, 0.3];
     let trans_mat = arr2(&[
-        [0.5, 0.25, 0.25],
-        [0.25, 0.5, 0.25],
-        [0.25, 0.25, 0.5]
+        [0.6, 0.2, 0.2],
+        [0.2, 0.6, 0.2],
+        [0.2, 0.2, 0.6]
     ]);
     let emit_mat = arr2(&[
-        [0.2, 0.2, 0.2, 0.2, 0.2],
-        [0.3, 0.05, 0.3, 0.05, 0.3],
-        [0.05, 0.425, 0.05, 0.425, 0.05]
+        [0.25, 0.25, 0.25, 0.25],
+        [0.49, 0.01, 0.49, 0.01],
+        [0.01, 0.49, 0.01, 0.49]
     ]);
     
     let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, num_seq);
@@ -27,7 +27,7 @@ fn test_forward_backward() {
     }
 
     // run forward_backward with the 'actual' trans_mat and emit_mat
-    let iteration = 1;
+    let iteration = 100;
     let mut trans_mat_hat = trans_mat.clone();
     let mut emit_mat_hat = emit_mat.clone();
     let (a_hat, b_hat) = hmm::forward_backward(
@@ -46,7 +46,41 @@ fn test_forward_backward() {
 }
 
 
+#[test]
+// #[ignore]
+// Check if foward and backward probabilities would match
+fn test_forward_and_backward_probs() {
+    // Create a mock sequence
+    let num_seq = 100;
+    let init_dist = vec![0.4, 0.3, 0.3];
+    let trans_mat = arr2(&[
+        [0.4, 0.3, 0.3],
+        [0.3, 0.4, 0.3],
+        [0.3, 0.3, 0.4]
+    ]);
+    let emit_mat = arr2(&[
+        [0.25, 0.25, 0.25, 0.25],
+        [0.49, 0.01, 0.49, 0.01],
+        [0.01, 0.49, 0.01, 0.49]
+    ]);
+    
+    let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, num_seq);
+    let obs_seq = generative::generate_observation_sequence(&state_seq, &emit_mat);
+    
+    let obs = obs_seq.iter().map(|x| *x as u8).collect();
 
+    let forward_prob = hmm::get_forward_prob(
+        &hmm::forward(&obs, &init_dist, &trans_mat, &emit_mat)
+    );
+    let backward_prob = hmm::get_backward_prob(
+        &hmm::backward(&obs, &trans_mat, &emit_mat),
+        &obs, &init_dist, &emit_mat
+    );
+
+    println!("Forward  probability = {:?}", forward_prob.log10());
+    println!("Backward probability = {:?}", backward_prob.log10());
+
+}
 
 #[test]
 #[ignore]
@@ -72,12 +106,12 @@ fn test_backward() {
          &trans_mat, 
          &emit_mat);
     
-         let backward_prob = hmm::get_backward_prob(
-            &backward_mat, 
-            &obs,
-            &init_dist,
-            &emit_mat
-         );
+    let backward_prob = hmm::get_backward_prob(
+    &backward_mat, 
+    &obs,
+    &init_dist,
+    &emit_mat
+    );
 
     println!("Backward Matrix with shape{:?}\n{:?}", backward_mat.shape(), backward_mat);
     println!("Backward probability = {:?}", backward_prob);
