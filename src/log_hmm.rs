@@ -2,15 +2,18 @@
 //  Hidden Markov Model implementation following Speech and Language Processing. 
 //  Daniel Jurafsky & James H. Martin. Copyright c 2019 (Draft of October 2, 2019).
 //
-//  Log calculation version of hmm.rs
+//  Log calculation version of hmm.rs following 
+//  http://bozeman.genome.washington.edu/compbio/mbt599_2006/hmm_scaling_revised.pdf
 //
+//
+
 
 const LOGZERO: f64 = f64::NAN;
 
 // use std::collections::HashMap;
 use std::vec::Vec;
 use ndarray::{Array2, Array3, Axis, s};
-use super::utility::{eln, eln_sum, eln_product};
+use super::utility::{eexpo, eln, eln_sum, eln_product};
 
 const CONVERGENCE_TOLERANCE: f64 = 0.00000001;
 const MAX_ITERATION: u32 = 100;
@@ -149,109 +152,233 @@ pub fn get_log_backward_prob(
     log_backward_prob
 }
 
+// compute the probability of being in state i at time t given the model and the observation sequene
+pub fn get_log_gamma(obs:&Vec<u8>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array2<f64> {
+    if log_forward_mat.shape() != log_backward_mat.shape() {
+        panic!("log_forward_mat and log_backward_mat must be of the same shape.")
+    };
+
+    let num_states = log_forward_mat.shape()[0];
+    let len_obs = obs.len();
+    let mut log_gamma = Array2::<f64>::zeros((num_states, len_obs));
+    let mut denominator: f64;
+
+    // iterate over observation sequence
+    for t in 0..len_obs {
+        denominator = LOGZERO;
+        
+        // calculate numerator for each i and add each i-th value to denominator
+        for i in 0..num_states {
+            log_gamma[[i, t]] = eln_product(
+                log_forward_mat[[i, t]], 
+                log_backward_mat[[i, t]]
+            );
+            denominator = eln_sum(
+                denominator, 
+                log_gamma[[i, t]]);
+        };
+
+        // normalize the log_gamma value for obs = t
+        for i in 0..num_states {
+            log_gamma[[i, t]] = eln_product(log_gamma[[i, t]], -denominator);
+        } 
+
+    }
+    log_gamma
+}
+
+
+// log_xi[[i, j, t]] tracks log probability of being in state i (1st dimenstion) at time t (3rd dimension) and state j (2nd dimension) at time t+1
+pub fn get_log_xi(obs:&Vec<u8>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array3<f64> {
+
+    if log_forward_mat.shape() != log_backward_mat.shape() {
+        panic!("log_forward_mat and log_backward_mat must be of the same shape.")
+    };
+    if trans_mat.shape()[0] != trans_mat.shape()[1] {
+        panic!("trans_mat must be a square matrix with the same number of rows and columns.")
+    };
+    if emit_mat.shape()[0] != trans_mat.shape()[0] {
+        panic!("Number of states in emit_mat must be the same as the one in trans_mat.")
+    };
+
+    let num_states = log_forward_mat.shape()[0];
+    let len_obs = obs.len();
+    let mut log_xi = Array3::<f64>::zeros((num_states, num_states, len_obs));
+    let mut denominator: f64;
+
+    // iterate over observation sequence
+    for t in 0..(len_obs-1) {
+        denominator = LOGZERO;
+
+        // calculate numerator for each i -> j transition and add value to denominator
+        for i in 0..num_states {
+            for j in 0..num_states {
+                log_xi[[i, j, t]] = eln_product(
+                    log_forward_mat[[i, t]],
+                    log_backward_mat[[i, t+1]]
+                );
+                denominator = eln_sum(
+                    denominator,
+                    log_xi[[i, j, t]]
+                );
+            }
+        };
+
+        // normalize the log_gamma value for obs = t
+        for i in 0..num_states {
+            for j in 0..num_states {
+                log_xi[[i, j, t]] = eln_product(
+                    log_xi[[i, j, t]],
+                    -denominator
+                )
+            }
+        }
+    }
+
+    log_xi    
+}
+
+
+// estimate initial distribution from log_gamma_mat
+pub fn estimate_initial_dist(log_gamma_mat: &Array2<f64>) -> Vec<f64> {
+    let mut init_dist = Vec::<f64>::with_capacity(log_gamma_mat.shape()[0]);
+
+    for i in 0..init_dist.len() {
+        init_dist[i] = eexpo(log_gamma_mat[[i, 0]]);
+    }
+
+    init_dist
+}
+
+
+pub fn estimate_trans_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>) -> Array2<f64> {
+    let num_states = log_gamma_mat.shape()[0];
+    let len_obs = log_xi_mat.shape()[2];
+    let mut a_hat = Array2::<f64>::zeros((num_states, num_states));
+
+    // iterate over each i->j transitions
+    for i in 0..num_states {
+        for j in 0..num_states {
+            let mut numerator = LOGZERO;
+            let mut denominator = LOGZERO;
+
+            // for each i->j transition, calculate numerator and denominator (normalizer)
+            for t in 0..(len_obs-1) {
+                numerator = eln_sum(
+                    numerator,
+                    log_xi_mat[[i, j, t]]
+                );
+                denominator = eln_sum(
+                    denominator,
+                    log_gamma_mat[[i, t]]
+                );
+            };
+            
+            // normalize numerator with denominator and assign its exponent to a_hat[i, j]
+            a_hat[[i, j]] = eexpo(
+                eln_product(
+                    numerator,
+                    -denominator
+                )
+            )
+        }
+    }
+
+    a_hat
+
+}
+
+
+
+pub fn estimate_emit_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>, obs:&Vec<u8>, num_obs: usize) -> Array2<f64> {
+    let num_states = log_gamma_mat.shape()[0];
+    let len_obs = log_xi_mat.shape()[2];
+    let mut b_hat = Array2::<f64>::zeros((num_states, num_obs));
+
+    // iterate over each emissions from state j to observation k
+    for k in 0..num_obs {
+        for j in 0..num_states {
+            let mut numerator = LOGZERO;
+            let mut denominator = LOGZERO;
+
+            for t in 0..len_obs {
+
+                // sum observations from state j where value k was observed
+                if (obs[t] as usize )== k {
+                    numerator = eln_sum(
+                        numerator,
+                        log_gamma_mat[[j, t]]
+                    );
+                };
+
+                // sum over all observation from state j
+                denominator = eln_sum(
+                    denominator,
+                    log_gamma_mat[[j, t]]
+                );
+            };
+
+            // estimate the prob of emitting k from state j
+            b_hat[[j, k]] = eexpo(
+                eln_product(
+                    numerator,
+                    -denominator
+                )
+            );
+
+        }
+        
+    };
+
+    b_hat
+
+}
+
+
 
 /// Estimation of transition and emission probability matrices with initial estimates
 /// INPUTS:
 /// 
-// pub fn log_forward_log_backward(
-//     obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Array2<f64>, Array2<f64>) {
+pub fn log_forward_backward(
+    obs:&Vec<u8>, init_dist: &mut Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Vec<f64>, Array2<f64>, Array2<f64>) {
     
-//     if trans_mat.shape()[0] != trans_mat.shape()[1] {
-//         panic!("trans_mat must be a square matrix with the same number of rows and columns.")
-//     }
-//     if init_dist.len() != trans_mat.shape()[0] {
-//         panic!("Number of states in init_dist must be the same as the one in trans_mat.")
-//     }
-//     if emit_mat.shape()[0] != trans_mat.shape()[0] {
-//         panic!("Number of states in emit_mat must be the same as the one in trans_mat.")
-//     }
+    if trans_mat.shape()[0] != trans_mat.shape()[1] {
+        panic!("trans_mat must be a square matrix with the same number of rows and columns.")
+    }
+    if init_dist.len() != trans_mat.shape()[0] {
+        panic!("Number of states in init_dist must be the same as the one in trans_mat.")
+    }
+    if emit_mat.shape()[0] != trans_mat.shape()[0] {
+        panic!("Number of states in emit_mat must be the same as the one in trans_mat.")
+    }
 
-//     let num_states = trans_mat.shape()[0];
-//     let num_obs = emit_mat.shape()[1];
-//     let len_obs = obs.len();
+    let num_states = trans_mat.shape()[0];
+    let num_obs = emit_mat.shape()[1];
+    let len_obs = obs.len();
 
-//     let mut iter_counter = 0;       // counter for iteration
-//     let mut convergence = 1.0;      // tracking convergence
-
-//     // gamma[[j, t]] tracks probability of being in j-th state (along the row) at time t (along the colukn)
-//     let mut gamma = Array2::<f64>::zeros((num_states, len_obs));
-
-//     // xi[[i, j, t]] tracks probability of being in state i (1st dimenstion) at time t (3rd dimension) and state j (2nd dimension) at time t+1
-//     let mut xi = Array3::<f64>::zeros((num_states, num_states, len_obs));
-
-//     // iterate till convergence or max_iter reached
-//     while (convergence > CONVERGENCE_TOLERANCE) && (iter_counter < max_iter) {
-//         println!("Iteration {:?}/{:?}", iter_counter + 1, max_iter);
-//         let alpha = log_forward(obs, init_dist, trans_mat, emit_mat);       // compute log_forward matrix
-//         let beta = log_backward(obs, trans_mat, emit_mat);                  // compute backword matrix
-//         let prob_obs_model = get_log_forward_prob(&alpha);      // Prob of obs given the model as log_forward prob of the whole utterance
-
-//         // compute gamma and xi
-//         for i in 0..num_states {
-//             for t in 0..len_obs {
-                
-//                 gamma[[i, t]] = alpha[[i, t]] * beta[[i, t]] / prob_obs_model;
-                
-//                 for j in 0..num_states {
-//                     if t != len_obs - 1 {
-//                         xi[[i, j, t]] = alpha[[i, t]] * trans_mat [[i, j]] * emit_mat[[j, obs[t+1] as usize]] * beta[[j, t + 1]] / prob_obs_model;
-//                     }
-
-//                 }
-//             }
-//         }
-
-//         // println!("gamma, xi:\n{:?}\n{:?}", gamma, xi);
-
-//         // re-estimate trans_mat
-//         for i in 0..num_states {
-//             for j in 0..num_states {
-
-//                 let mut numerator = 0.0;
-//                 let mut denominator = 0.0;
-
-//                 for t in 0..(len_obs-1) {
-
-//                     numerator += xi[[i, j, t]];
-
-//                     for k in 0..num_states {
-//                         denominator += xi[[i, k, t]];
-//                     }
-//                 };
-                
-//                 trans_mat[[i, j]] = numerator / denominator;
-
-//             }
-//         }
+    let mut iter_counter = 0;       // counter for iteration
+    let mut convergence = 1.0;      // tracking convergence
 
 
-//         // re-estimate emit_mat
-//         for i in 0..num_states {
-//             for o in 0..num_obs {
+    // iterate till convergence or max_iter reached
+    while (convergence > CONVERGENCE_TOLERANCE) && (iter_counter < max_iter) {
+        println!("Iteration {:?}/{:?}", iter_counter + 1, max_iter);
+        
+        let eln_alpha = log_forward(obs, init_dist, trans_mat, emit_mat);
+        let eln_beta = log_backward(obs, trans_mat, emit_mat);
+        let log_gamma = get_log_gamma(obs, &eln_alpha, &eln_beta);
+        let log_xi = get_log_xi(obs, trans_mat, emit_mat, &eln_alpha, &eln_beta);
 
-//                 let mut numerator = 0.0;
-//                 let mut denominator = 0.0;
+        *init_dist = estimate_initial_dist(&log_gamma);
+        *trans_mat = estimate_trans_mat(&log_gamma, &log_xi);
+        *emit_mat = estimate_emit_mat(&log_gamma, &log_xi, obs, num_obs);
 
-//                 for t in 0..len_obs {
-//                     if obs[t] as usize == o {
+        iter_counter += 1;
 
-//                         numerator += gamma[[i, t]];
+    };
 
-//                     };
-
-//                     denominator += gamma[[i, t]];
-//                 }
-                
-//                 emit_mat[[i, o]] = numerator / denominator;
-//             }
-//         }
-
-//         iter_counter += 1;
-
-//     };
-
-//     (trans_mat.to_owned(), emit_mat.to_owned())
-// }
+    (init_dist.to_owned(), trans_mat.to_owned(), emit_mat.to_owned())
+}
 
 
 /// Calculate viterbi probability

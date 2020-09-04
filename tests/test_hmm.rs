@@ -55,7 +55,7 @@ fn test_forward_backward() {
 
 
 #[test]
-// #[ignore]
+#[ignore]
 // Check if forward and backward probabilities would match
 fn test_regular_vs_log_probs() {
     // Create a mock sequence
@@ -101,7 +101,6 @@ fn test_regular_vs_log_probs() {
     println!("Backward probability (ln(regular) vs ln_prob): {:?} vs {:?}", backward_prob.ln(), log_backward_prob);
 
 }
-
 
 
 #[test]
