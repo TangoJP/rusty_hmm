@@ -26,7 +26,7 @@ const MAX_ITERATION: u32 = 100;
 /// init_dist: initial distribuition of states. it assumes its index corresponds to row index of trans_mat and emit_mat (for the former, both row & column indices)
 /// trans_mat: state transition matrix
 /// emit_mat: emission matrix. sates along the row, possible observations along the column
-pub fn log_forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
+pub fn log_compute_forward_matrix(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
     let len_obs = obs.len();           // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
     let mut log_forward_mat = Array2::<f64>::zeros((num_states, len_obs));  // log_forward matrix
@@ -75,7 +75,7 @@ pub fn log_forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, 
 }
 
 
-pub fn get_log_forward_prob(log_forward_mat: &Array2<f64>) -> f64 {
+pub fn log_compute_forward_prob(log_forward_mat: &Array2<f64>) -> f64 {
     println!("Computing log_forward_prob");
     let mut log_forward_prob = LOGZERO;
     for i in 0..log_forward_mat.shape()[0] {
@@ -88,7 +88,7 @@ pub fn get_log_forward_prob(log_forward_mat: &Array2<f64>) -> f64 {
 }
 
 
-pub fn log_backward(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
+pub fn log_compute_backward_matrix(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
     let len_obs = obs.len();                    // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
     let mut log_backward_mat = Array2::<f64>::zeros((num_states, len_obs));  // log_backward matrix
@@ -132,9 +132,7 @@ pub fn log_backward(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64
 }
 
 
-pub fn get_log_backward_prob(
-    log_backward_mat: &Array2<f64>, 
-    obs:&Vec<u8>, init_dist: &Vec<f64>, emit_mat: &Array2<f64>) -> f64 {
+pub fn loc_compute_backward_prob(log_backward_mat: &Array2<f64>, obs:&Vec<u8>, init_dist: &Vec<f64>, emit_mat: &Array2<f64>) -> f64 {
     
     let mut log_backward_prob = LOGZERO;
     for ind_state in 0..log_backward_mat.shape()[0] {
@@ -153,7 +151,7 @@ pub fn get_log_backward_prob(
 }
 
 // compute the probability of being in state i at time t given the model and the observation sequene
-pub fn get_log_gamma(obs:&Vec<u8>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array2<f64> {
+pub fn log_compute_gamma(obs:&Vec<u8>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array2<f64> {
     if log_forward_mat.shape() != log_backward_mat.shape() {
         panic!("log_forward_mat and log_backward_mat must be of the same shape.")
     };
@@ -189,7 +187,7 @@ pub fn get_log_gamma(obs:&Vec<u8>, log_forward_mat: &Array2<f64>, log_backward_m
 
 
 // log_xi[[i, j, t]] tracks log probability of being in state i (1st dimenstion) at time t (3rd dimension) and state j (2nd dimension) at time t+1
-pub fn get_log_xi(obs:&Vec<u8>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array3<f64> {
+pub fn log_compute_xi(obs:&Vec<u8>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array3<f64> {
 
     if log_forward_mat.shape() != log_backward_mat.shape() {
         panic!("log_forward_mat and log_backward_mat must be of the same shape.")
@@ -241,16 +239,18 @@ pub fn get_log_xi(obs:&Vec<u8>, trans_mat: &mut Array2<f64>, emit_mat: &mut Arra
 
 // estimate initial distribution from log_gamma_mat
 pub fn estimate_initial_dist(log_gamma_mat: &Array2<f64>) -> Vec<f64> {
-    let mut init_dist = Vec::<f64>::with_capacity(log_gamma_mat.shape()[0]);
+    let length = log_gamma_mat.shape()[0];
+    let mut init_dist = Vec::<f64>::with_capacity(length);
 
-    for i in 0..init_dist.len() {
-        init_dist[i] = eexpo(log_gamma_mat[[i, 0]]);
+    for i in 0..length {
+        init_dist.push(eexpo(log_gamma_mat[[i, 0]]));
     }
 
     init_dist
 }
 
 
+// estimate transition matrix
 pub fn estimate_trans_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>) -> Array2<f64> {
     let num_states = log_gamma_mat.shape()[0];
     let len_obs = log_xi_mat.shape()[2];
@@ -289,7 +289,7 @@ pub fn estimate_trans_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>)
 }
 
 
-
+// estimate emission matrix
 pub fn estimate_emit_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>, obs:&Vec<u8>, num_obs: usize) -> Array2<f64> {
     let num_states = log_gamma_mat.shape()[0];
     let len_obs = log_xi_mat.shape()[2];
@@ -335,11 +335,10 @@ pub fn estimate_emit_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>, 
 }
 
 
-
 /// Estimation of transition and emission probability matrices with initial estimates
 /// INPUTS:
 /// 
-pub fn log_forward_backward(
+pub fn log_compute_forward_backward(
     obs:&Vec<u8>, init_dist: &mut Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Vec<f64>, Array2<f64>, Array2<f64>) {
     
     if trans_mat.shape()[0] != trans_mat.shape()[1] {
@@ -352,9 +351,7 @@ pub fn log_forward_backward(
         panic!("Number of states in emit_mat must be the same as the one in trans_mat.")
     }
 
-    let num_states = trans_mat.shape()[0];
     let num_obs = emit_mat.shape()[1];
-    let len_obs = obs.len();
 
     let mut iter_counter = 0;       // counter for iteration
     let mut convergence = 1.0;      // tracking convergence
@@ -363,11 +360,19 @@ pub fn log_forward_backward(
     // iterate till convergence or max_iter reached
     while (convergence > CONVERGENCE_TOLERANCE) && (iter_counter < max_iter) {
         println!("Iteration {:?}/{:?}", iter_counter + 1, max_iter);
-        
-        let eln_alpha = log_forward(obs, init_dist, trans_mat, emit_mat);
-        let eln_beta = log_backward(obs, trans_mat, emit_mat);
-        let log_gamma = get_log_gamma(obs, &eln_alpha, &eln_beta);
-        let log_xi = get_log_xi(obs, trans_mat, emit_mat, &eln_alpha, &eln_beta);
+
+        // print!("Initial Dist ({:?}/{:?})\n{:?}\n", iter_counter + 1, max_iter, init_dist);
+        // print!("Trans Mat ({:?}/{:?})\n{:?}\n", iter_counter + 1, max_iter, trans_mat);
+        // print!("Emit Mat ({:?}/{:?})\n{:?}\n", iter_counter + 1, max_iter, emit_mat);
+        // print!("\n");
+
+        let eln_alpha = log_compute_forward_matrix(obs, init_dist, trans_mat, emit_mat);
+        let eln_beta = log_compute_backward_matrix(obs, trans_mat, emit_mat);
+        let log_gamma = log_compute_gamma(obs, &eln_alpha, &eln_beta);
+        let log_xi = log_compute_xi(obs, trans_mat, emit_mat, &eln_alpha, &eln_beta);
+
+        // println!("log_gamma shape {:?}", log_gamma.shape());
+        // println!("  log_xi  shape {:?}", log_xi.shape());
 
         *init_dist = estimate_initial_dist(&log_gamma);
         *trans_mat = estimate_trans_mat(&log_gamma, &log_xi);
@@ -378,6 +383,7 @@ pub fn log_forward_backward(
     };
 
     (init_dist.to_owned(), trans_mat.to_owned(), emit_mat.to_owned())
+
 }
 
 

@@ -3,6 +3,58 @@ use ndarray::{Axis, arr2};
 
 
 #[test]
+// #[ignore]
+fn test_log_forward_backward() {
+    let len_seq = 10000;
+    let init_dist = vec![0.65, 0.35];
+    let trans_mat = arr2(&[
+        [0.8, 0.2],
+        [0.2, 0.8]
+    ]);
+    let emit_mat = arr2(&[
+        [0.99, 0.01],
+        [0.01, 0.99]
+    ]);
+    
+    let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
+    let obs_seq = generative::generate_observation_sequence(&state_seq, &emit_mat);
+    
+    let mut obs = Vec::<u8>::new();
+    for o in obs_seq.iter() {
+        obs.push(*o as u8);
+    }
+
+    // run forward_backward with the 'actual' trans_mat and emit_mat
+    let iteration = 500;
+    let mut init_dist_hat = vec![0.5, 0.5];
+    let mut trans_mat_hat = arr2(&[
+        [0.7, 0.3],
+        [0.3, 0.7]
+    ]);
+    let mut emit_mat_hat = arr2(&[
+        [0.7, 0.3],
+        [0.3, 0.7]
+    ]);
+    let (init_hat, a_hat, b_hat) = log_hmm::log_compute_forward_backward(
+        &obs, 
+        &mut init_dist_hat, 
+        &mut trans_mat_hat, 
+        &mut emit_mat_hat, 
+        iteration);
+    
+    println!("Actual init_mat\n{:?}", init_hat);
+    println!("Estimated init_mat\n{:?}", init_dist_hat);
+
+    println!("Actual trans_mat\n{:?}", trans_mat);
+    println!("Estimated trans_mat\n{:?}", a_hat);
+
+    println!("Actual emit_mat\n{:?}", emit_mat);
+    println!("Estimated emit_mat\n{:?}", b_hat);
+    
+}
+
+
+#[test]
 #[ignore]
 fn test_forward_backward() {
     let len_seq = 500;
@@ -86,13 +138,13 @@ fn test_regular_vs_log_probs() {
         &obs, &init_dist, &emit_mat
     );
 
-    let log_forward_prob = log_hmm::get_log_forward_prob(
-        &log_hmm::log_forward(&obs, &init_dist, &trans_mat, &emit_mat)
+    let log_forward_prob = log_hmm::log_compute_forward_prob(
+        &log_hmm::log_compute_forward_matrix(&obs, &init_dist, &trans_mat, &emit_mat)
     );
 
     println!("Computing log_backward_prob");
-    let log_backward_prob = log_hmm::get_log_backward_prob(
-        &log_hmm::log_backward(&obs, &trans_mat, &emit_mat),
+    let log_backward_prob = log_hmm::loc_compute_backward_prob(
+        &log_hmm::log_compute_backward_matrix(&obs, &trans_mat, &emit_mat),
         &obs, &init_dist, &emit_mat
     );
 
