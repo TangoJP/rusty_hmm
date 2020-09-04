@@ -40,7 +40,7 @@ pub fn forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
 
 
     for ind_obs in 1..len_obs {                     // for each observation along the observations sequence
-        // println!("FOWARD-PROCESSING {:?}/{:?} OBSERVATIONS", ind_obs + 1, len_obs);
+        // println!("forward-PROCESSING {:?}/{:?} OBSERVATIONS", ind_obs + 1, len_obs);
         for ind_curr_state in 0..num_states {       // for each state
             // calculate the probability of seeing the observation obs[ind_obs] for state ind_current_state by summing the probabilities
             // of coming from each potential path.
@@ -56,6 +56,7 @@ pub fn forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
 
     forward_mat
 }
+
 
 pub fn get_forward_prob(forward_mat: &Array2<f64>) -> f64 {
     let forward_prob = forward_mat.sum_axis(Axis(0))[forward_mat.shape()[1]-1];
@@ -98,6 +99,7 @@ pub fn backward(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -
 
     backward_mat
 }
+
 
 pub fn get_backward_prob(
     backward_mat: &Array2<f64>, 
@@ -142,7 +144,7 @@ pub fn forward_backward(
     // xi[[i, j, t]] tracks probability of being in state i (1st dimenstion) at time t (3rd dimension) and state j (2nd dimension) at time t+1
     let mut xi = Array3::<f64>::zeros((num_states, num_states, len_obs));
 
-
+    // iterate till convergence or max_iter reached
     while (convergence > CONVERGENCE_TOLERANCE) && (iter_counter < max_iter) {
         println!("Iteration {:?}/{:?}", iter_counter + 1, max_iter);
         let alpha = forward(obs, init_dist, trans_mat, emit_mat);       // compute forward matrix
@@ -164,6 +166,8 @@ pub fn forward_backward(
             }
         }
 
+        // println!("gamma, xi:\n{:?}\n{:?}", gamma, xi);
+
         // re-estimate trans_mat
         for i in 0..num_states {
             for j in 0..num_states {
@@ -171,7 +175,7 @@ pub fn forward_backward(
                 let mut numerator = 0.0;
                 let mut denominator = 0.0;
 
-                for t in 0..len_obs {
+                for t in 0..(len_obs-1) {
 
                     numerator += xi[[i, j, t]];
 
@@ -213,8 +217,6 @@ pub fn forward_backward(
 
     (trans_mat.to_owned(), emit_mat.to_owned())
 }
-
-
 
 
 /// Calculate viterbi probability
@@ -304,33 +306,3 @@ pub fn traceback_viterbi(backpointer: &Array2<usize>, start: usize) -> Vec<usize
 }
 
 
-
-
-
-
-
-// struct HMM {
-//     states: Vec<String>,                            // set of state names
-//     // state_string2index_map: HashMap<String, u8>,    // hashmap to convert state names to numerical index
-//     // obs_string2index_map: HashMap<String, u8>,      // hashmap to convert observation names to numerical index
-
-//     init_state_distribution: Vec<f64>,              // Initial distribution of states
-//     trans_mat: Array2<f64>,                         // state transition probability matrix
-//     emit_mat: Array2<f64>,                          // emission probability matrix
-// }
-
-// impl HMM {
-
-//     pub fn new() -> HMM {
-//         HMM {
-//             states: Vec::<String>::new(),
-//             // state_string2index_map = HashMap::new(),
-//             init_state_distribution: Vec::<f64>::new(),
-//             trans_mat: Array2::<f64>::zeros((0, 0)),
-//             emit_mat: Array2::<f64>::zeros((0, 0)),
-//         }
-//     }
-
-
-
-// }

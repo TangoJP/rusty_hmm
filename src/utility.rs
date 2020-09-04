@@ -50,3 +50,55 @@ pub fn pick_index_from_cumulative_prob_vector(cumu_prob_vector: &Vec<f64>) -> us
 
     i
 }
+
+
+
+// extended exponential function to deal with NAN
+pub fn eexpo(x: f64) -> f64 {
+    if x.is_nan() {
+        0.0
+    } else {
+        x.exp()
+    }
+}
+
+// extended natural log function to deal with NAN
+pub fn eln(x: f64) -> f64 {
+    if x > 0.0 {
+        x.ln()
+    } else if x == 0.0 {
+        f64::NAN
+    } else {
+        panic!("Invalid f64 number entered for the function (e.g. negative number).")
+    }
+}
+
+// takes in extended_ln (above) of two numbers and returns extended_ln(x + y)
+pub fn eln_sum(eln_x: f64, eln_y:f64) -> f64 {
+    if  eln_x.is_nan() || eln_y.is_nan() {
+        if eln_x.is_nan() {
+            eln_y
+        } else {
+            eln_x
+        }
+    } else {
+        if eln_x > eln_y {
+            eln_x + eln(1.0 + (eln_y - eln_x).exp())
+        } else {
+            eln_y + eln(1.0 + (eln_x - eln_y).exp())
+        }
+    }
+}
+
+// takes in extended_ln (above) of two numbers and returns extended_ln(xy), i.e. sum of inputs
+pub fn eln_product(eln_x: f64, eln_y:f64) -> f64 {
+    if  eln_x.is_nan() || eln_y.is_nan() {
+        f64::NAN
+    } else {
+        eln_x + eln_y
+    }
+}
+
+
+
+

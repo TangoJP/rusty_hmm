@@ -1,5 +1,9 @@
+use rusty_hmm::{hmm, log_hmm, generative, utility};
+use ndarray::{Axis, arr2};
+
+
 fn main() {
-    let x = 0.325*0.6*0.5 + 0.28*0.4*0.5;
-    let y = 0.325*0.4*0.2 + 0.28*0.6*0.2;
-    println!("{:?}, {:?}", x, y);
+
+    println!("Uncover hidden secrets with HMM!");
+
 }
