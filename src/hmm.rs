@@ -11,7 +11,6 @@ use ndarray::{Array2, Array3, Axis, s};
 
 
 const CONVERGENCE_TOLERANCE: f64 = 0.00000001;
-const MAX_ITERATION: u32 = 100;
 
 
 /// Calculate forward probability
@@ -21,7 +20,7 @@ const MAX_ITERATION: u32 = 100;
 /// init_dist: initial distribuition of states. it assumes its index corresponds to row index of trans_mat and emit_mat (for the former, both row & column indices)
 /// trans_mat: state transition matrix
 /// emit_mat: emission matrix. sates along the row, possible observations along the column
-pub fn forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
+pub fn forward(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
     let len_obs = obs.len();           // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
     let mut forward_mat = Array2::<f64>::zeros((num_states, len_obs));  // forward matrix
@@ -35,7 +34,7 @@ pub fn forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
 
     // initialize
     for ind_state in 0..num_states {
-        forward_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0] as usize]];
+        forward_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0]]];
     };
 
 
@@ -46,7 +45,7 @@ pub fn forward(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
             // of coming from each potential path.
             let mut forward_temp = 0.0;             
             for ind_prev_state in 0..num_states{
-                let f = forward_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs] as usize]];
+                let f = forward_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs]]];
                 forward_temp += f;
             }
 
@@ -64,7 +63,7 @@ pub fn get_forward_prob(forward_mat: &Array2<f64>) -> f64 {
 }
 
 
-pub fn backward(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
+pub fn backward(obs:&Vec<usize>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
     let len_obs = obs.len();                    // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
     let mut backward_mat = Array2::<f64>::zeros((num_states, len_obs));  // backward matrix
@@ -89,7 +88,7 @@ pub fn backward(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -
             //
             let mut backward_temp = 0.0;             
             for ind_next_state in 0..num_states{
-                let b_ = backward_mat[[ind_next_state, ind_obs + 1]] * trans_mat[[ind_curr_state, ind_next_state]] * emit_mat[[ind_next_state, obs[ind_obs+1] as usize]];
+                let b_ = backward_mat[[ind_next_state, ind_obs + 1]] * trans_mat[[ind_curr_state, ind_next_state]] * emit_mat[[ind_next_state, obs[ind_obs+1]]];
                 backward_temp += b_;
             }
 
@@ -103,12 +102,12 @@ pub fn backward(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -
 
 pub fn get_backward_prob(
     backward_mat: &Array2<f64>, 
-    obs:&Vec<u8>, init_dist: &Vec<f64>, emit_mat: &Array2<f64>) -> f64 {
+    obs:&Vec<usize>, init_dist: &Vec<f64>, emit_mat: &Array2<f64>) -> f64 {
     
     let num_states = backward_mat.shape()[0];
     let mut backward_prob = 0.0;
     for ind_state in 0..num_states {
-        backward_prob +=  backward_mat[[ind_state, 0]] * init_dist[ind_state] * emit_mat[[ind_state, obs[0] as usize]];
+        backward_prob +=  backward_mat[[ind_state, 0]] * init_dist[ind_state] * emit_mat[[ind_state, obs[0]]];
     }
 
     backward_prob
@@ -119,7 +118,7 @@ pub fn get_backward_prob(
 /// INPUTS:
 /// 
 pub fn forward_backward(
-    obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Array2<f64>, Array2<f64>) {
+    obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Array2<f64>, Array2<f64>) {
     
     if trans_mat.shape()[0] != trans_mat.shape()[1] {
         panic!("trans_mat must be a square matrix with the same number of rows and columns.")
@@ -159,7 +158,7 @@ pub fn forward_backward(
                 
                 for j in 0..num_states {
                     if t != len_obs - 1 {
-                        xi[[i, j, t]] = alpha[[i, t]] * trans_mat [[i, j]] * emit_mat[[j, obs[t+1] as usize]] * beta[[j, t + 1]] / prob_obs_model;
+                        xi[[i, j, t]] = alpha[[i, t]] * trans_mat [[i, j]] * emit_mat[[j, obs[t+1]]] * beta[[j, t + 1]] / prob_obs_model;
                     }
 
                 }
@@ -198,7 +197,7 @@ pub fn forward_backward(
                 let mut denominator = 0.0;
 
                 for t in 0..len_obs {
-                    if obs[t] as usize == o {
+                    if obs[t] == o {
 
                         numerator += gamma[[i, t]];
 
@@ -226,7 +225,7 @@ pub fn forward_backward(
 /// init_dist: initial distribuition of states. it assumes its index corresponds to row index of trans_mat and emit_mat (for the former, both row & column indices)
 /// trans_mat: state transition matrix
 /// emit_mat: emission matrix. sates along the row, possible observations along the column
-pub fn viterbi(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> (Array2<f64>, Array2<usize>) /*f64*/ {
+pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> (Array2<f64>, Array2<usize>) /*f64*/ {
     let len_obs = obs.len();                    // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
     let mut v_mat = Array2::<f64>::zeros((num_states, len_obs));  // viterbi matrix
@@ -241,7 +240,7 @@ pub fn viterbi(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
 
     // initialize
     for ind_state in 0..num_states {
-        v_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0] as usize]];
+        v_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0]]];
         bp_mat[[ind_state, 0]] = 0;
     };
 
@@ -253,7 +252,7 @@ pub fn viterbi(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
             let mut vprob_temp = 0.0;
             let mut bp_ind_temp = 0;           
             for ind_prev_state in 0..num_states{
-                let v_ = v_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs] as usize]];
+                let v_ = v_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs]]];
                 if v_ > vprob_temp {
                     vprob_temp = v_;
                     bp_ind_temp = ind_prev_state;

@@ -1,11 +1,11 @@
-use rusty_hmm::{hmm, log_hmm, generative, utility};
+use rusty_hmm::{hmm, log_hmm, generative};
 use ndarray::{Axis, arr2};
 
 
 #[test]
 // #[ignore]
 fn test_log_forward_backward() {
-    let len_seq = 10000;
+    let len_seq = 100000;
     let init_dist = vec![0.5, 0.5];
     let trans_mat = arr2(&[
         [0.9, 0.1],
@@ -17,15 +17,10 @@ fn test_log_forward_backward() {
     ]);
     
     let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
-    let obs_seq = generative::generate_observation_sequence(&state_seq, &emit_mat);
-    
-    let mut obs = Vec::<u8>::new();
-    for o in obs_seq.iter() {
-        obs.push(*o as u8);
-    }
+    let obs = generative::generate_observation_sequence(&state_seq, &emit_mat);
 
     // run forward_backward with the 'actual' trans_mat and emit_mat
-    let iteration = 200;
+    let iteration = 30;
     let mut init_dist_hat = vec![0.5, 0.5];
     let mut trans_mat_hat = arr2(&[
         [0.7, 0.3],
@@ -44,7 +39,7 @@ fn test_log_forward_backward() {
     
     println!("=====================================");
     println!("Actual init_mat\n{:?}", init_dist);
-    println!("Estimated init_mat\n{:?}", init_dist_hat);
+    println!("Estimated init_mat\n{:?}", init_hat);
 
     println!("Actual trans_mat\n{:?}", trans_mat);
     println!("Estimated trans_mat\n{:?}", a_hat);
@@ -72,12 +67,7 @@ fn test_forward_backward() {
     ]);
     
     let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
-    let obs_seq = generative::generate_observation_sequence(&state_seq, &emit_mat);
-    
-    let mut obs = Vec::<u8>::new();
-    for o in obs_seq.iter() {
-        obs.push(*o as u8);
-    }
+    let obs = generative::generate_observation_sequence(&state_seq, &emit_mat);
 
     // run forward_backward with the 'actual' trans_mat and emit_mat
     let iteration = 100;
@@ -126,10 +116,8 @@ fn test_regular_vs_log_probs() {
     ]);
     
     let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
-    let obs_seq = generative::generate_observation_sequence(&state_seq, &emit_mat);
-    
-    let obs = obs_seq.iter().map(|x| *x as u8).collect();
-    
+    let obs = generative::generate_observation_sequence(&state_seq, &emit_mat);
+
     // calculate regular forward & backforward probabilities
     let forward_prob = hmm::get_forward_prob(
         &hmm::forward(&obs, &init_dist, &trans_mat, &emit_mat)
@@ -175,9 +163,7 @@ fn test_forward_and_backward_probs() {
     ]);
     
     let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
-    let obs_seq = generative::generate_observation_sequence(&state_seq, &emit_mat);
-    
-    let obs = obs_seq.iter().map(|x| *x as u8).collect();
+    let obs = generative::generate_observation_sequence(&state_seq, &emit_mat);
 
     let forward_prob = hmm::get_forward_prob(
         &hmm::forward(&obs, &init_dist, &trans_mat, &emit_mat)
@@ -197,7 +183,11 @@ fn test_forward_and_backward_probs() {
 fn test_forward() {
     // thinking coin flip with a normal (state 0) and fixed coin (state 1)
     // assume observation 1 = head, 0 = tail
-    let obs = vec![0u8, 1u8, 1u8, 1u8, 0u8, 0u8, 0u8, 1u8, 1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8];
+    let obs = vec![
+        0usize, 1usize, 1usize, 1usize, 0usize, 0usize, 0usize, 1usize, 
+        1usize, 0usize, 0usize, 0usize, 0usize, 0usize, 0usize, 0usize, 
+        0usize, 0usize
+    ];
     let mut init_dist = Vec::<f64>::new();
     init_dist.push(0.65);
     init_dist.push(0.35);
@@ -229,7 +219,11 @@ fn test_forward() {
 fn test_backward() {
     // thinking coin flip with a normal (state 0) and fixed coin (state 1)
     // assume observation 1 = head, 0 = tail
-    let obs = vec![0u8, 1u8, 1u8, 1u8, 0u8, 0u8, 0u8, 1u8, 1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8];
+    let obs = vec![
+        0usize, 1usize, 1usize, 1usize, 0usize, 0usize, 0usize, 1usize, 
+        1usize, 0usize, 0usize, 0usize, 0usize, 0usize, 0usize, 0usize, 
+        0usize, 0usize
+    ];
     let mut init_dist = Vec::<f64>::new();
     init_dist.push(0.65);
     init_dist.push(0.35);
@@ -265,7 +259,11 @@ fn test_backward() {
 fn test_viterbi() {
     // thinking coin flip with a normal (state 0) and fixed coin (state 1)
     // assume observation 1 = head, 0 = tail
-    let obs = vec![0u8, 1u8, 1u8, 1u8, 0u8, 0u8, 0u8, 1u8, 1u8, 0u8, 0u8, 0u8, 1u8, 0u8, 0u8, 0u8, 0u8, 0u8, 0u8];
+    let obs = vec![
+        0usize, 1usize, 1usize, 1usize, 0usize, 0usize, 0usize, 1usize, 
+        1usize, 0usize, 0usize, 0usize, 1usize, 0usize, 0usize, 0usize, 
+        0usize, 0usize, 0usize
+    ];
     let mut init_dist = Vec::<f64>::new();
     init_dist.push(0.5);
     init_dist.push(0.5);

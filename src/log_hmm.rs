@@ -23,7 +23,7 @@ const CONVERGENCE_TOLERANCE: f64 = 0.0005;
 /// init_dist: initial distribuition of states. it assumes its index corresponds to row index of trans_mat and emit_mat (for the former, both row & column indices)
 /// trans_mat: state transition matrix
 /// emit_mat: emission matrix. sates along the row, possible observations along the column
-pub fn log_compute_forward_matrix(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
+pub fn log_compute_forward_matrix(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
     
     let len_obs = obs.len();                    // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
@@ -38,7 +38,7 @@ pub fn log_compute_forward_matrix(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat:
     for ind_state in 0..num_states {
         log_forward_mat[[ind_state, 0]] = eln_product(
             eln(init_dist[ind_state]), 
-            eln(emit_mat[[ind_state, obs[0] as usize]])
+            eln(emit_mat[[ind_state, obs[0]]])
         );
     };
 
@@ -60,7 +60,7 @@ pub fn log_compute_forward_matrix(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat:
             }
             log_forward_temp = eln_product(                 // do log multiplication with emit_mat because it only depends on current state
                 log_forward_temp, 
-                eln(emit_mat[[ind_curr_state, obs[ind_obs] as usize]])
+                eln(emit_mat[[ind_curr_state, obs[ind_obs]]])
             );
 
             log_forward_mat[[ind_curr_state, ind_obs]] = log_forward_temp;
@@ -94,7 +94,7 @@ pub fn log_compute_forward_prob(log_forward_mat: &Array2<f64>) -> f64 {
 /// init_dist: initial distribuition of states. it assumes its index corresponds to row index of trans_mat and emit_mat (for the former, both row & column indices)
 /// trans_mat: state transition matrix
 /// emit_mat: emission matrix. sates along the row, possible observations along the column
-pub fn log_compute_backward_matrix(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
+pub fn log_compute_backward_matrix(obs:&Vec<usize>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
     let len_obs = obs.len();                    // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
     let mut log_backward_mat = Array2::<f64>::zeros((num_states, len_obs));  // log_backward matrix
@@ -120,7 +120,7 @@ pub fn log_compute_backward_matrix(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_m
                     eln_product(
                         eln(trans_mat[[ind_curr_state, ind_next_state]]),
                         eln_product(
-                            eln(emit_mat[[ind_next_state, obs[ind_obs+1] as usize]]), 
+                            eln(emit_mat[[ind_next_state, obs[ind_obs+1]]]), 
                             log_backward_mat[[ind_next_state, ind_obs + 1]])
                     )
                 );
@@ -140,7 +140,7 @@ pub fn log_compute_backward_matrix(obs:&Vec<u8>, trans_mat: &Array2<f64>, emit_m
 /// obs: sequence of observations represented as indices in emit_mat
 /// init_dist: initial distribuition of states.
 /// emit_mat: emission matrix.
-pub fn loc_compute_backward_prob(log_backward_mat: &Array2<f64>, obs:&Vec<u8>, init_dist: &Vec<f64>, emit_mat: &Array2<f64>) -> f64 {
+pub fn loc_compute_backward_prob(log_backward_mat: &Array2<f64>, obs:&Vec<usize>, init_dist: &Vec<f64>, emit_mat: &Array2<f64>) -> f64 {
     
     let mut log_backward_prob = LOGZERO;
     for ind_state in 0..log_backward_mat.shape()[0] {
@@ -150,7 +150,7 @@ pub fn loc_compute_backward_prob(log_backward_mat: &Array2<f64>, obs:&Vec<u8>, i
                 eln(init_dist[ind_state]), 
                 eln_product(
                     log_backward_mat[[ind_state, 0]], 
-                    eln(emit_mat[[ind_state, obs[0] as usize]])
+                    eln(emit_mat[[ind_state, obs[0]]])
                 )
             )
         );
@@ -164,7 +164,7 @@ pub fn loc_compute_backward_prob(log_backward_mat: &Array2<f64>, obs:&Vec<u8>, i
 /// obs: sequence of observations represented as indices in emit_mat
 /// log_forward_mat: pre-computed log_forward probability matrix
 /// log_backward_mat: pre-computed log_backward probability matrix
-pub fn log_compute_gamma(obs:&Vec<u8>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array2<f64> {
+pub fn log_compute_gamma(obs:&Vec<usize>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array2<f64> {
     if log_forward_mat.shape() != log_backward_mat.shape() {
         panic!("log_forward_mat and log_backward_mat must be of the same shape.")
     };
@@ -209,7 +209,7 @@ pub fn log_compute_gamma(obs:&Vec<u8>, log_forward_mat: &Array2<f64>, log_backwa
 /// emit_mat: emission matrix. sates along the row, possible observations along the column
 /// log_forward_mat: pre-computed log_forward probability matrix
 /// log_backward_mat: pre-computed log_backward probability matrix
-pub fn log_compute_xi(obs:&Vec<u8>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array3<f64> {
+pub fn log_compute_xi(obs:&Vec<usize>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, log_forward_mat: &Array2<f64>, log_backward_mat: &Array2<f64>) -> Array3<f64> {
 
     if log_forward_mat.shape() != log_backward_mat.shape() {
         panic!("log_forward_mat and log_backward_mat must be of the same shape.")
@@ -236,7 +236,7 @@ pub fn log_compute_xi(obs:&Vec<u8>, trans_mat: &mut Array2<f64>, emit_mat: &mut 
                 log_xi[[i, j, t]] = eln_product(
                     log_forward_mat[[i, t]],
                     eln_product(
-                        emit_mat[[j, obs[t+1] as usize]],
+                        emit_mat[[j, obs[t+1]]],
                         log_backward_mat[[i, t+1]]
                     )
                     
@@ -326,7 +326,7 @@ pub fn estimate_trans_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>)
 /// log_xi_mat:
 /// obs:
 /// num_obs:
-pub fn estimate_emit_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>, obs:&Vec<u8>, num_obs: usize) -> Array2<f64> {
+pub fn estimate_emit_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>, obs:&Vec<usize>, num_obs: usize) -> Array2<f64> {
     let num_states = log_gamma_mat.shape()[0];
     let len_obs = log_xi_mat.shape()[2];
     let mut b_hat = Array2::<f64>::zeros((num_states, num_obs));
@@ -340,7 +340,7 @@ pub fn estimate_emit_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>, 
             for t in 0..len_obs {
 
                 // sum observations from state j where value k was observed
-                if (obs[t] as usize )== k {
+                if (obs[t] )== k {
                     numerator = eln_sum(
                         numerator,
                         log_gamma_mat[[j, t]]
@@ -380,7 +380,7 @@ pub fn estimate_emit_mat(log_gamma_mat: &Array2<f64>, log_xi_mat: &Array3<f64>, 
 /// emit_mat: initial emission matrix
 /// max_iter: max number of iterations
 pub fn log_compute_forward_backward(
-    obs:&Vec<u8>, init_dist: &mut Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Vec<f64>, Array2<f64>, Array2<f64>) {
+    obs:&Vec<usize>, init_dist: &mut Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Vec<f64>, Array2<f64>, Array2<f64>) {
     
     if trans_mat.shape()[0] != trans_mat.shape()[1] {
         panic!("trans_mat must be a square matrix with the same number of rows and columns.")
@@ -440,7 +440,7 @@ pub fn log_compute_forward_backward(
 /// init_dist: initial distribuition of states. it assumes its index corresponds to row index of trans_mat and emit_mat (for the former, both row & column indices)
 /// trans_mat: state transition matrix
 /// emit_mat: emission matrix. sates along the row, possible observations along the column
-pub fn viterbi(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> (Array2<f64>, Array2<usize>) /*f64*/ {
+pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> (Array2<f64>, Array2<usize>) /*f64*/ {
     let len_obs = obs.len();                    // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
     let mut v_mat = Array2::<f64>::zeros((num_states, len_obs));  // viterbi matrix
@@ -455,7 +455,7 @@ pub fn viterbi(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
 
     // initialize
     for ind_state in 0..num_states {
-        v_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0] as usize]];
+        v_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0]]];
         bp_mat[[ind_state, 0]] = 0;
     };
 
@@ -467,7 +467,7 @@ pub fn viterbi(obs:&Vec<u8>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit
             let mut vprob_temp = 0.0;
             let mut bp_ind_temp = 0;           
             for ind_prev_state in 0..num_states{
-                let v_ = v_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs] as usize]];
+                let v_ = v_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs]]];
                 if v_ > vprob_temp {
                     vprob_temp = v_;
                     bp_ind_temp = ind_prev_state;
