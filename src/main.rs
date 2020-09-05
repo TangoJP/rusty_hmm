@@ -1,5 +1,5 @@
-use rusty_hmm::{hmm, log_hmm, generative, utility};
-use ndarray::{Axis, arr2};
+// use rusty_hmm::{hmm, log_hmm, generative, utility};
+// use ndarray::{Axis, arr2};
 
 
 fn main() {

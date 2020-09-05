@@ -1,10 +1,10 @@
-use rusty_hmm::{hmm, log_hmm};
 use rusty_hmm::generative::MockHMMModel;
-use ndarray::{Axis, arr2};
+use ndarray::arr2;
 
+mod common;
 
 #[test]
-// #[ignore]
+#[ignore]
 fn test_mock_hmm_model() {
 
     let mut model = MockHMMModel::new(

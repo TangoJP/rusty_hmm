@@ -7,10 +7,10 @@
 
 // use std::collections::HashMap;
 use std::vec::Vec;
-use ndarray::{Array2, Array3, Axis, s};
+use ndarray::{Array2, Array3, Axis};
 
 
-const CONVERGENCE_TOLERANCE: f64 = 0.00000001;
+// const CONVERGENCE_TOLERANCE: f64 = 0.00000001;
 
 
 /// Calculate forward probability
@@ -135,7 +135,6 @@ pub fn forward_backward(
     let len_obs = obs.len();
 
     let mut iter_counter = 0;       // counter for iteration
-    let mut convergence = 1.0;      // tracking convergence
 
     // gamma[[j, t]] tracks probability of being in j-th state (along the row) at time t (along the colukn)
     let mut gamma = Array2::<f64>::zeros((num_states, len_obs));
@@ -144,7 +143,7 @@ pub fn forward_backward(
     let mut xi = Array3::<f64>::zeros((num_states, num_states, len_obs));
 
     // iterate till convergence or max_iter reached
-    while (convergence > CONVERGENCE_TOLERANCE) && (iter_counter < max_iter) {
+    while iter_counter < max_iter {
         println!("Iteration {:?}/{:?}", iter_counter + 1, max_iter);
         let alpha = forward(obs, init_dist, trans_mat, emit_mat);       // compute forward matrix
         let beta = backward(obs, trans_mat, emit_mat);                  // compute backword matrix
@@ -265,12 +264,12 @@ pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, e
     }
 
     let mut best_path_prob = 0.0;
-    let mut best_bp = 0;
-    for (i, row) in v_mat.axis_iter(Axis(0)).enumerate() {
+    // let mut best_bp = 0;
+    for row in v_mat.axis_iter(Axis(0)) {//.enumerate() {
         let prob_temp = row[len_obs - 1];
         if  prob_temp > best_path_prob {
             best_path_prob = prob_temp;
-            best_bp = i;
+            // best_bp = i;
         }
     }
 

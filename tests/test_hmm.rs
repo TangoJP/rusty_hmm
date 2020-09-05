@@ -1,35 +1,20 @@
-use rusty_hmm::{hmm, log_hmm, generative};
+use rusty_hmm::{hmm, log_hmm};
 use ndarray::{Axis, arr2};
 
+mod common;
 
 #[test]
 #[ignore]
 fn test_log_forward_backward() {
-    let len_seq = 100000;
-    let init_dist = vec![0.5, 0.5];
-    let trans_mat = arr2(&[
-        [0.9, 0.1],
-        [0.1, 0.9]
-    ]);
-    let emit_mat = arr2(&[
-        [0.8, 0.2],
-        [0.2, 0.8]
-    ]);
+    let (model, 
+        (mut init_dist_hat, 
+        mut trans_mat_hat, 
+        mut emit_mat_hat)
+    ) = common::case1();
     
-    let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
-    let obs = generative::generate_observation_sequence(&state_seq, &emit_mat);
-
-    // run forward_backward with the 'actual' trans_mat and emit_mat
+    let obs = model.observations;
     let iteration = 30;
-    let mut init_dist_hat = vec![0.5, 0.5];
-    let mut trans_mat_hat = arr2(&[
-        [0.7, 0.3],
-        [0.3, 0.7]
-    ]);
-    let mut emit_mat_hat = arr2(&[
-        [0.7, 0.3],
-        [0.3, 0.7]
-    ]);
+
     let (init_hat, a_hat, b_hat) = log_hmm::log_compute_forward_backward(
         &obs, 
         &mut init_dist_hat, 
@@ -38,13 +23,13 @@ fn test_log_forward_backward() {
         iteration);
     
     println!("=====================================");
-    println!("Actual init_mat\n{:?}", init_dist);
+    println!("Actual init_mat\n{:?}", model.init_dist);
     println!("Estimated init_mat\n{:?}", init_hat);
 
-    println!("Actual trans_mat\n{:?}", trans_mat);
+    println!("Actual trans_mat\n{:?}", model.trans_mat);
     println!("Estimated trans_mat\n{:?}", a_hat);
 
-    println!("Actual emit_mat\n{:?}", emit_mat);
+    println!("Actual emit_mat\n{:?}", model.emit_mat);
     println!("Estimated emit_mat\n{:?}", b_hat);
     
 }
@@ -53,45 +38,26 @@ fn test_log_forward_backward() {
 #[test]
 #[ignore]
 fn test_forward_backward() {
-    let len_seq = 500;
-    let init_dist = vec![0.34, 0.33, 0.33];
-    let trans_mat = arr2(&[
-        [0.6, 0.2, 0.2],
-        [0.2, 0.6, 0.2],
-        [0.2, 0.2, 0.6]
-    ]);
-    let emit_mat = arr2(&[
-        [0.25, 0.25, 0.25, 0.25],
-        [0.49, 0.01, 0.49, 0.01],
-        [0.01, 0.49, 0.01, 0.49]
-    ]);
+    let (model, 
+        (init_dist_hat, 
+        mut trans_mat_hat, 
+        mut emit_mat_hat)
+    ) = common::case2();
     
-    let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
-    let obs = generative::generate_observation_sequence(&state_seq, &emit_mat);
-
-    // run forward_backward with the 'actual' trans_mat and emit_mat
+    let obs = model.observations;
     let iteration = 100;
-    let mut trans_mat_hat = arr2(&[
-        [0.4, 0.3, 0.3],
-        [0.3, 0.4, 0.3],
-        [0.3, 0.3, 0.4]
-    ]);
-    let mut emit_mat_hat = arr2(&[
-        [0.25, 0.25, 0.25, 0.25],
-        [0.4, 0.1, 0.4, 0.1],
-        [0.1, 0.4, 0.1, 0.4]
-    ]);
+
     let (a_hat, b_hat) = hmm::forward_backward(
         &obs, 
-        &init_dist, 
+        &init_dist_hat, 
         &mut trans_mat_hat, 
         &mut emit_mat_hat, 
         iteration);
     
-    println!("Actual trans_mat\n{:?}", trans_mat);
+    println!("Actual trans_mat\n{:?}", model.trans_mat);
     println!("Estimated trans_mat\n{:?}", a_hat);
 
-    println!("Actual emit_mat\n{:?}", emit_mat);
+    println!("Actual emit_mat\n{:?}", model.emit_mat);
     println!("Estimated emit_mat\n{:?}", b_hat);
     
 }
@@ -102,39 +68,26 @@ fn test_forward_backward() {
 // Check if forward and backward probabilities would match
 fn test_regular_vs_log_probs() {
     // Create a mock sequence
-    let len_seq = 100;
-    let init_dist = vec![0.4, 0.3, 0.3];
-    let trans_mat = arr2(&[
-        [0.4, 0.3, 0.3],
-        [0.3, 0.4, 0.3],
-        [0.3, 0.3, 0.4]
-    ]);
-    let emit_mat = arr2(&[
-        [0.25, 0.25, 0.25, 0.25],
-        [0.49, 0.01, 0.49, 0.01],
-        [0.01, 0.49, 0.01, 0.49]
-    ]);
+    let (model, _) = common::case2();
+    let obs = model.observations;
     
-    let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
-    let obs = generative::generate_observation_sequence(&state_seq, &emit_mat);
-
     // calculate regular forward & backforward probabilities
     let forward_prob = hmm::get_forward_prob(
-        &hmm::forward(&obs, &init_dist, &trans_mat, &emit_mat)
+        &hmm::forward(&obs, &model.init_dist, &model.trans_mat, &model.emit_mat)
     );
     let backward_prob = hmm::get_backward_prob(
-        &hmm::backward(&obs, &trans_mat, &emit_mat),
-        &obs, &init_dist, &emit_mat
+        &hmm::backward(&obs, &model.trans_mat, &model.emit_mat),
+        &obs, &model.init_dist, &model.emit_mat
     );
 
     let log_forward_prob = log_hmm::log_compute_forward_prob(
-        &log_hmm::log_compute_forward_matrix(&obs, &init_dist, &trans_mat, &emit_mat)
+        &log_hmm::log_compute_forward_matrix(&obs, &model.init_dist, &model.trans_mat, &model.emit_mat)
     );
 
     println!("Computing log_backward_prob");
     let log_backward_prob = log_hmm::loc_compute_backward_prob(
-        &log_hmm::log_compute_backward_matrix(&obs, &trans_mat, &emit_mat),
-        &obs, &init_dist, &emit_mat
+        &log_hmm::log_compute_backward_matrix(&obs, &model.trans_mat, &model.emit_mat),
+        &obs, &model.init_dist, &model.emit_mat
     );
 
 
@@ -149,28 +102,15 @@ fn test_regular_vs_log_probs() {
 // Check if forward and backward probabilities would match
 fn test_forward_and_backward_probs() {
     // Create a mock sequence
-    let len_seq = 100;
-    let init_dist = vec![0.4, 0.3, 0.3];
-    let trans_mat = arr2(&[
-        [0.4, 0.3, 0.3],
-        [0.3, 0.4, 0.3],
-        [0.3, 0.3, 0.4]
-    ]);
-    let emit_mat = arr2(&[
-        [0.25, 0.25, 0.25, 0.25],
-        [0.49, 0.01, 0.49, 0.01],
-        [0.01, 0.49, 0.01, 0.49]
-    ]);
-    
-    let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
-    let obs = generative::generate_observation_sequence(&state_seq, &emit_mat);
+    let (model, _) = common::case2();
+    let obs = model.observations;
 
     let forward_prob = hmm::get_forward_prob(
-        &hmm::forward(&obs, &init_dist, &trans_mat, &emit_mat)
+        &hmm::forward(&obs, &model.init_dist, &model.trans_mat, &model.emit_mat)
     );
     let backward_prob = hmm::get_backward_prob(
-        &hmm::backward(&obs, &trans_mat, &emit_mat),
-        &obs, &init_dist, &emit_mat
+        &hmm::backward(&obs, &model.trans_mat, &model.emit_mat),
+        &obs, &model.init_dist, &model.emit_mat
     );
 
     println!("Forward  probability = {:?}", forward_prob.log10());
@@ -219,23 +159,11 @@ fn test_forward() {
 fn test_backward() {
     // thinking coin flip with a normal (state 0) and fixed coin (state 1)
     // assume observation 1 = head, 0 = tail
-    let obs = vec![
-        0usize, 1usize, 1usize, 1usize, 0usize, 0usize, 0usize, 1usize, 
-        1usize, 0usize, 0usize, 0usize, 0usize, 0usize, 0usize, 0usize, 
-        0usize, 0usize
-    ];
-    let mut init_dist = Vec::<f64>::new();
-    init_dist.push(0.65);
-    init_dist.push(0.35);
-
-    let trans_mat = arr2(&[
-        [0.6, 0.4],
-        [0.4, 0.6]
-    ]);
-    let emit_mat = arr2(&[
-        [0.5, 0.5],
-        [0.8, 0.2]
-    ]);
+    let (obs, 
+        init_dist, 
+        trans_mat, 
+        emit_mat
+    ) = common::case3();
 
     let backward_mat = hmm::backward(
          &obs, 
@@ -259,23 +187,11 @@ fn test_backward() {
 fn test_viterbi() {
     // thinking coin flip with a normal (state 0) and fixed coin (state 1)
     // assume observation 1 = head, 0 = tail
-    let obs = vec![
-        0usize, 1usize, 1usize, 1usize, 0usize, 0usize, 0usize, 1usize, 
-        1usize, 0usize, 0usize, 0usize, 1usize, 0usize, 0usize, 0usize, 
-        0usize, 0usize, 0usize
-    ];
-    let mut init_dist = Vec::<f64>::new();
-    init_dist.push(0.5);
-    init_dist.push(0.5);
-
-    let trans_mat = arr2(&[
-        [0.55, 0.45],
-        [0.45, 0.55]
-    ]);
-    let emit_mat = arr2(&[
-        [0.5, 0.5],
-        [0.65, 0.35]
-    ]);
+    let (obs, 
+        init_dist, 
+        trans_mat, 
+        emit_mat
+    ) = common::case3();
 
     let (v, b) = hmm::viterbi(
          &obs, 

@@ -480,12 +480,12 @@ pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, e
     }
 
     let mut best_path_prob = 0.0;
-    let mut best_bp = 0;
-    for (i, row) in v_mat.axis_iter(Axis(0)).enumerate() {
+    // let mut best_bp = 0;
+    for row in v_mat.axis_iter(Axis(0)) {//.enumerate() {
         let prob_temp = row[len_obs - 1];
         if  prob_temp > best_path_prob {
             best_path_prob = prob_temp;
-            best_bp = i;
+            // best_bp = i;
         }
     }
 
