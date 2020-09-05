@@ -3,7 +3,7 @@ use ndarray::{Axis, arr2};
 
 
 #[test]
-// #[ignore]
+#[ignore]
 fn test_log_forward_backward() {
     let len_seq = 100000;
     let init_dist = vec![0.5, 0.5];

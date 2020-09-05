@@ -52,6 +52,16 @@ pub fn pick_index_from_cumulative_prob_vector(cumu_prob_vector: &Vec<f64>) -> us
 }
 
 
+/// to be implemented....
+pub fn check_prob_vector_sums_to_one(matrix: &Vec<f64>) -> bool {
+    true
+}
+
+/// to be implemented....
+pub fn check_prob_matrix_sums_to_one(matrix: &Array2<f64>) -> bool {
+    true
+}
+
 
 // extended exponential function to deal with NAN
 pub fn eexpo(x: f64) -> f64 {
