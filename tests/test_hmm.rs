@@ -6,14 +6,14 @@ use ndarray::{Axis, arr2};
 // #[ignore]
 fn test_log_forward_backward() {
     let len_seq = 10000;
-    let init_dist = vec![0.65, 0.35];
+    let init_dist = vec![0.5, 0.5];
     let trans_mat = arr2(&[
-        [0.8, 0.2],
-        [0.2, 0.8]
+        [0.9, 0.1],
+        [0.1, 0.9]
     ]);
     let emit_mat = arr2(&[
-        [0.99, 0.01],
-        [0.01, 0.99]
+        [0.8, 0.2],
+        [0.2, 0.8]
     ]);
     
     let state_seq = generative::generate_state_sequence(&init_dist, &trans_mat, len_seq);
@@ -25,7 +25,7 @@ fn test_log_forward_backward() {
     }
 
     // run forward_backward with the 'actual' trans_mat and emit_mat
-    let iteration = 500;
+    let iteration = 200;
     let mut init_dist_hat = vec![0.5, 0.5];
     let mut trans_mat_hat = arr2(&[
         [0.7, 0.3],
@@ -42,7 +42,8 @@ fn test_log_forward_backward() {
         &mut emit_mat_hat, 
         iteration);
     
-    println!("Actual init_mat\n{:?}", init_hat);
+    println!("=====================================");
+    println!("Actual init_mat\n{:?}", init_dist);
     println!("Estimated init_mat\n{:?}", init_dist_hat);
 
     println!("Actual trans_mat\n{:?}", trans_mat);
