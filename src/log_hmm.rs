@@ -410,13 +410,12 @@ pub fn log_compute_forward_backward(
         *trans_mat = estimate_trans_mat(&log_gamma, &log_xi);
         *emit_mat = estimate_emit_mat(&log_gamma, &log_xi, obs, num_obs);
 
-        println!("Processed iteration {:?}/{:?}: score = {:?}", iter_counter + 1, max_iter, curr_score);
+        println!("Processed iteration {:?}/{:?}: log-score = {:?}", iter_counter + 1, max_iter, curr_score);
 
         // compute change from the previous round and check for convergence
         if iter_counter != 0 {
             // 1-|curr_score - prev_score|/curr_score
             let change = 1.0 - eexpo((curr_score - prev_score).abs());
-            println!("Change in score: {:?}", change);
             if change.abs() < CONVERGENCE_TOLERANCE {
                 break;
             }
@@ -427,7 +426,7 @@ pub fn log_compute_forward_backward(
         
     };
 
-    println!("Iteration finished at iteration {:?}/{:?}: final score = {:?}", iter_counter, max_iter, prev_score);
+    println!("Iteration finished at iteration {:?}/{:?}: final log-score = {:?}", iter_counter, max_iter, prev_score);
 
     (init_dist.to_owned(), trans_mat.to_owned(), emit_mat.to_owned())
 
