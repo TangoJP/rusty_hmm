@@ -1,5 +1,42 @@
 use rusty_hmm::utility;
 use std::collections::HashMap;
+use ndarray::arr2;
+
+#[test]
+#[ignore]
+fn test_check_prob_vector_sums_to_one() {
+    let good_vec = vec![0.11, 0.19, 0.3, 0.4];
+    let bad_vec = vec![0.11, 0.19, 0.3, 0.42];
+
+    let good_res = utility::check_prob_vector_sums_to_one(&good_vec);
+    let bad_res = utility::check_prob_vector_sums_to_one(&bad_vec);
+
+    println!("{:?} => {:?}", good_vec, good_res);
+    println!("{:?} => {:?}", bad_vec, bad_res);
+
+}
+
+
+#[test]
+// #[ignore]
+fn test_check_prob_matrix_sums_to_one() {
+    let good_mat = arr2(&[
+        [0.11, 0.19, 0.3, 0.4],
+        [0.0, 0.5, 0.4, 0.1],
+        [0.291, 0.21, 0.34, 0.159]
+    ]);
+    let bad_mat = arr2(&[
+        [0.11, 0.19, 0.3, 0.40001],
+        [0.0, 0.5, 0.4, 0.1],
+        [0.25, 0.31, 0.34, 0.1]
+    ]);
+
+    let good_res = utility::check_prob_matrix_sums_to_one(&good_mat);
+    let bad_res = utility::check_prob_matrix_sums_to_one(&bad_mat);
+
+    println!("{:?} => {:?}", good_mat, good_res);
+    println!("{:?} => {:?}", bad_mat, bad_res);
+}
 
 
 #[test]

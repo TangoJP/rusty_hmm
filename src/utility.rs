@@ -1,5 +1,5 @@
 use rand::Rng;
-use ndarray::{Array2};
+use ndarray::{Array2, Axis};
 use std::vec::Vec;
 
 /// Create a new vector with cumulative sum up to each element of the input vector.
@@ -53,13 +53,25 @@ pub fn pick_index_from_cumulative_prob_vector(cumu_prob_vector: &Vec<f64>) -> us
 
 
 /// to be implemented....
-pub fn check_prob_vector_sums_to_one(matrix: &Vec<f64>) -> bool {
-    true
+pub fn check_prob_vector_sums_to_one(vector: &Vec<f64>) -> bool {
+    let mut sum = 0.0;
+    for e in vector.iter() {
+        sum += e;
+    }
+
+    sum == 1.0
+
 }
 
 /// to be implemented....
 pub fn check_prob_matrix_sums_to_one(matrix: &Array2<f64>) -> bool {
-    true
+    for (i, row) in matrix.axis_iter(Axis(0)).enumerate() {
+        if row.sum() != 1.0 {
+            println!("{}-th row does not add up to 1.0.", i);
+            return false;
+        };
+    }
+    return true;
 }
 
 
