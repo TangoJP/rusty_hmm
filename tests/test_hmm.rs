@@ -1,5 +1,6 @@
 use rusty_hmm::{hmm, log_hmm};
 use rusty_hmm::log_hmm::LogHMM;
+use rusty_hmm::utility::{check_prob_matrix_sums_to_one, check_prob_vector_sums_to_one};
 use ndarray::{Axis, arr2};
 
 mod common;
@@ -36,6 +37,8 @@ fn test_log_forward_backward1() {
     println!("Actual emit_mat\n{:?}", model.emit_mat);
     println!("Estimated emit_mat\n{:?}", hmm.emit_mat);
     
+    println!("trans_mat rows add up to 1.0: {:?}", hmm.trans_mat.sum_axis(Axis(0)));
+    println!("emit_mat rows add up to 1.0: {:?}", hmm.emit_mat.sum_axis(Axis(0)));
 }
 
 
@@ -71,6 +74,8 @@ fn test_log_forward_backward2() {
     println!("Actual emit_mat\n{:?}", model.emit_mat);
     println!("Estimated emit_mat\n{:?}", hmm.emit_mat);
     
+    println!("trans_mat rows add up to 1.0: {:?}", hmm.trans_mat.sum_axis(Axis(1)));
+    println!("emit_mat rows add up to 1.0: {:?}", hmm.emit_mat.sum_axis(Axis(1)));
 }
 
 #[test]

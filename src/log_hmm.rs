@@ -140,10 +140,9 @@ impl LogHMM {
 
             self.update_alpha();
             self.update_beta();
+            self._update_proba_seq_given_model();
             self._compute_gamma();
             self._compute_xi();
-
-            self._update_proba_seq_given_model();
 
             self._update_init_dist();
             self._update_trans_mat();
@@ -204,30 +203,21 @@ impl LogHMM {
 
     // compute log_gamma matrix
     fn _compute_gamma(&mut self) {
-        let mut denominator: f64;
-    
         // iterate over observation sequence
         for t in 0..self.len_obs {
-            denominator = LOGZERO;
-            
+
             // calculate numerator for each i and add each i-th value to denominator
             for i in 0..self.num_states {
                 self.log_gamma[[i, t]] = eln_product(
                     self.log_alpha[[i, t]], 
                     self.log_beta[[i, t]]
                 );
-                denominator = eln_sum(
-                    denominator, 
-                    self.log_gamma[[i, t]]);
-            };
-    
-            // normalize the log_gamma value for obs = t
-            for i in 0..self.num_states {
                 self.log_gamma[[i, t]] = eln_product(
                     self.log_gamma[[i, t]], 
-                    -denominator
+                    -self.proba_seq_given_model
                 );
-            } 
+            };
+    
     
         }
     
@@ -235,37 +225,28 @@ impl LogHMM {
 
     // compute log_xi matrix
     fn _compute_xi(&mut self) {
-        let mut denominator: f64;
-
         // iterate over observation sequence
         for t in 0..(self.len_obs-1) {
-            denominator = LOGZERO;
 
             // calculate numerator for each i -> j transition and add value to denominator
             for i in 0..self.num_states {
                 for j in 0..self.num_states {
-                    self.log_xi[[i, j, t]] = eln_product(
+                    let component1 = eln_product(
                         self.log_alpha[[i, t]],
-                        eln_product(
-                            self.emit_mat[[j, self.observations[t+1]]],
-                            self.log_beta[[i, t+1]]
-                        )
-                        
+                        self.trans_mat[[i, j]]
                     );
-                    denominator = eln_sum(
-                        denominator,
-                        self.log_xi[[i, j, t]]
+                    let component2 = eln_product(
+                        self.emit_mat[[j, self.observations[t+1]]],
+                        self.log_beta[[j, t+1]]
                     );
-                };
-            };
-
-            // normalize the log_gamma value for obs = t
-            for i in 0..self.num_states {
-                for j in 0..self.num_states {
+                    self.log_xi[[i, j, t]] = eln_product(
+                        component1, 
+                        component2      
+                    );
                     self.log_xi[[i, j, t]] = eln_product(
                         self.log_xi[[i, j, t]],
-                        -denominator
-                    )
+                        -self.proba_seq_given_model
+                    );
                 };
             };
         };
@@ -293,10 +274,12 @@ impl LogHMM {
                         numerator,
                         self.log_xi[[i, j, t]]
                     );
-                    denominator = eln_sum(
-                        denominator,
-                        self.log_gamma[[i, t]]
-                    );
+                    for k in 0..self.num_states {
+                        denominator = eln_sum(
+                            denominator,
+                            self.log_xi[[i, k, t]]
+                        );
+                    };
                 };
                 
                 // normalize numerator with denominator and assign its exponent to a_hat[i, j]
@@ -305,9 +288,9 @@ impl LogHMM {
                         numerator,
                         -denominator
                     )
-                )
-            }
-        }
+                );
+            };
+        };
     }
 
     // update emit_mat estimate
