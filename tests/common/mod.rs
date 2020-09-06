@@ -4,7 +4,7 @@ use ndarray::{arr2, Array2};
 pub fn case1() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
     // Create test sequence
     let mut model = MockHMMModel::new(
-        100000,
+        200000,
         2,
         2,
     );
@@ -45,7 +45,7 @@ pub fn case1() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
 pub fn case2() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
     // Create test sequence
     let mut model = MockHMMModel::new(
-        100000,
+        200000,
         3,
         4,
     );
@@ -53,16 +53,16 @@ pub fn case2() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
     model.set_init_dist_vector(vec![0.34, 0.33, 0.33]);
     model.set_transition_matrix(
         arr2(&[
-            [0.9, 0.05, 0.05],
-            [0.05, 0.9, 0.05],
-            [0.05, 0.05, 0.9]
+            [0.8, 0.1, 0.1],
+            [0.1, 0.8, 0.1],
+            [0.1, 0.1, 0.8]
         ])
     );
     model.set_emission_matrix(
         arr2(&[
-            [0.49, 0.49, 0.01, 0.01],
-            [0.01, 0.01, 0.97, 0.01],
-            [0.01, 0.01, 0.01, 0.97]
+            [0.4, 0.4, 0.1, 0.1],
+            [0.1, 0.1, 0.7, 0.1],
+            [0.1, 0.1, 0.1, 0.7]
         ])
     );
 

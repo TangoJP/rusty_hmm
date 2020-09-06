@@ -2,218 +2,340 @@
 //  Hidden Markov Model implementation following Speech and Language Processing. 
 //  Daniel Jurafsky & James H. Martin. Copyright c 2019 (Draft of October 2, 2019).
 //
+//  Log calculation version of hmm.rs following 
+//  http://bozeman.genome.washington.edu/compbio/mbt599_2006/hmm_scaling_revised.pdf
+//
 //
 
 
-// use std::collections::HashMap;
 use std::vec::Vec;
 use ndarray::{Array2, Array3, Axis};
+use super::utility::{eexpo, eln, eln_sum, eln_product};
+
+const LOGZERO: f64 = f64::NAN;
+const CONVERGENCE_TOLERANCE: f64 = 0.00001;  
 
 
-// const CONVERGENCE_TOLERANCE: f64 = 0.00000001;
+pub struct HMM {
+    pub observations: Vec<usize>,
+    pub len_obs: usize,
+    pub num_states: usize,
+    pub num_obs: usize,
+    pub init_dist: Vec<f64>,
+    pub trans_mat: Array2<f64>,
+    pub emit_mat: Array2<f64>,
+    pub proba_seq_given_model: f64,
+    log_alpha: Array2<f64>,
+    log_beta: Array2<f64>,
+    log_gamma: Array2<f64>,
+    log_xi: Array3<f64>,
+    max_iter: i32,
+}
 
+impl HMM {
+    /// Create a new model instance
+    pub fn new(observations: Vec<usize>, init_dist: Vec<f64>, trans_mat: Array2<f64>, emit_mat: Array2<f64>, max_iter: i32) -> HMM {
+        // if the shapes don't match, raise exception
+        if init_dist.len() != trans_mat.shape()[0] {
+            panic!("# of states in trans_mat does not match with that of init_dist.")
+        };
+        if trans_mat.shape()[0] != trans_mat.shape()[1] {
+            panic!("trans_mat must be a square matrix with the same number of rows and columns.")
+        };
+        if init_dist.len() != emit_mat.shape()[0] {
+            panic!{"Number of rows in emit_mat does not match with that of trans_mat."}
+        };
 
-/// Calculate forward probability
-///
-/// INPUTS:
-/// obs: sequence of observations represented as indices in emit_mat
-/// init_dist: initial distribuition of states. it assumes its index corresponds to row index of trans_mat and emit_mat (for the former, both row & column indices)
-/// trans_mat: state transition matrix
-/// emit_mat: emission matrix. sates along the row, possible observations along the column
-pub fn forward(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
-    let len_obs = obs.len();           // length of observations
-    let num_states = trans_mat.shape()[0];      // number of possible states
-    let mut forward_mat = Array2::<f64>::zeros((num_states, len_obs));  // forward matrix
-
-    // if the shape doesn't match, raise exception
-    if emit_mat.shape()[0] != num_states {
-        panic!{"Number of rows in emit_mat does not match with that of trans_mat."}
-    };
-
-    // if sume along the row for emit_mat does not equal 1 { panic! }
-
-    // initialize
-    for ind_state in 0..num_states {
-        forward_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0]]];
-    };
-
-
-    for ind_obs in 1..len_obs {                     // for each observation along the observations sequence
-        // println!("forward-PROCESSING {:?}/{:?} OBSERVATIONS", ind_obs + 1, len_obs);
-        for ind_curr_state in 0..num_states {       // for each state
-            // calculate the probability of seeing the observation obs[ind_obs] for state ind_current_state by summing the probabilities
-            // of coming from each potential path.
-            let mut forward_temp = 0.0;             
-            for ind_prev_state in 0..num_states{
-                let f = forward_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs]]];
-                forward_temp += f;
-            }
-
-            forward_mat[[ind_curr_state, ind_obs]] = forward_temp;
+        let length = observations.len();
+        let number_of_states = init_dist.len();
+        HMM {
+            observations,
+            len_obs: length,
+            num_states: number_of_states,
+            num_obs: emit_mat.shape()[1],
+            init_dist,
+            trans_mat,
+            emit_mat,
+            proba_seq_given_model: LOGZERO,
+            log_alpha: Array2::<f64>::zeros((number_of_states, length)),
+            log_beta: Array2::<f64>::zeros((number_of_states, length)),
+            log_gamma: Array2::<f64>::zeros((number_of_states, length)),
+            log_xi: Array3::<f64>::zeros((number_of_states, number_of_states, length)),
+            max_iter
         }
     }
 
-    forward_mat
-}
+    /// update the forward matrix in place
+    pub fn update_alpha(&mut self) {
+        // initialize for the 1st time point
+        for ind_state in 0..self.num_states {
+            self.log_alpha[[ind_state, 0]] = eln_product(
+                eln(self.init_dist[ind_state]), 
+                eln(self.emit_mat[[ind_state, self.observations[0]]])
+            );
+        };
 
+        // recursively fill in the rest
+        for ind_obs in 1..self.len_obs {                    // for each observation along the observations sequence
 
-pub fn get_forward_prob(forward_mat: &Array2<f64>) -> f64 {
-    let forward_prob = forward_mat.sum_axis(Axis(0))[forward_mat.shape()[1]-1];
-    forward_prob
-}
+            for ind_curr_state in 0..self.num_states {      // for each state
+                // calculate the probability of seeing the observation 
+                // obs[ind_obs] for state ind_current_state by summing the 
+                // probabilities of coming from each potential path.
+                let mut log_forward_temp = LOGZERO;                 // place holder
+                for ind_prev_state in 0..self.num_states{       // do multiplication, i.e. log sum, of log_forward_mat and trans_mat which depend on prev_state
+                    log_forward_temp = eln_sum(
+                        log_forward_temp,
+                        eln_product(
+                            self.log_alpha[[ind_prev_state, ind_obs-1]],
+                            eln(self.trans_mat[[ind_prev_state, ind_curr_state]])
+                        )
+                    );
+                }
+                log_forward_temp = eln_product(         // do log multiplication with emit_mat because it only depends on current state
+                    log_forward_temp, 
+                    eln(self.emit_mat[[ind_curr_state, self.observations[ind_obs]]])
+                );
 
-
-pub fn backward(obs:&Vec<usize>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> Array2<f64> {
-    let len_obs = obs.len();                    // length of observations
-    let num_states = trans_mat.shape()[0];      // number of possible states
-    let mut backward_mat = Array2::<f64>::zeros((num_states, len_obs));  // backward matrix
-
-    // if the shape doesn't match, raise exception
-    if emit_mat.shape()[0] != num_states {
-        panic!{"Number of rows in emit_mat does not match with that of trans_mat."}
-    };
-
-    // if sume along the row for emit_mat does not equal 1 { panic! }
-
-    // initialize
-    for ind_state in 0..num_states {
-        backward_mat[[ind_state, len_obs - 1]] = 1.0;
-    };
-
-
-    for ind_obs in (0..(len_obs - 1)).rev() {                     // for each observation along the observations sequence
-        // println!("BACKWARD-PROCESSING {:?}/{:?} REMANINING OBSERVATIONS", ind_obs + 1, len_obs);
-        for ind_curr_state in 0..num_states {       // for each state
-            // calculate the probability of seeing the observation obs[ind_obs] for state ind_current_state by summing the probabilities
-            //
-            let mut backward_temp = 0.0;             
-            for ind_next_state in 0..num_states{
-                let b_ = backward_mat[[ind_next_state, ind_obs + 1]] * trans_mat[[ind_curr_state, ind_next_state]] * emit_mat[[ind_next_state, obs[ind_obs+1]]];
-                backward_temp += b_;
-            }
-
-            backward_mat[[ind_curr_state, ind_obs]] = backward_temp;
-        }
+                self.log_alpha[[ind_curr_state, ind_obs]] = log_forward_temp;
+            };
+        };
     }
 
-    backward_mat
-}
+    /// update the backward matrix
+    pub fn update_beta(&mut self) {
+        // initialize
+        for ind_state in 0..self.num_states {
+            self.log_beta[[ind_state, self.len_obs - 1]] = 0.0;
+        };
 
+        for ind_obs in (0..(self.len_obs - 1)).rev() {       // for each observation along the observations sequence
+            for ind_curr_state in 0..self.num_states {       // for each state
+                // calculate the probability of seeing the observation obs[ind_obs]
+                //  for state ind_current_state by summing the probabilities
+                let mut log_backward_temp = LOGZERO;             
+                for ind_next_state in 0..self.num_states{
+                    log_backward_temp = eln_sum(
+                        log_backward_temp, 
+                        eln_product(
+                            eln(self.trans_mat[[ind_curr_state, ind_next_state]]),
+                            eln_product(
+                                eln(self.emit_mat[[ind_next_state, self.observations[ind_obs+1]]]), 
+                                self.log_beta[[ind_next_state, ind_obs + 1]])
+                        )
+                    );
+                }
 
-pub fn get_backward_prob(
-    backward_mat: &Array2<f64>, 
-    obs:&Vec<usize>, init_dist: &Vec<f64>, emit_mat: &Array2<f64>) -> f64 {
-    
-    let num_states = backward_mat.shape()[0];
-    let mut backward_prob = 0.0;
-    for ind_state in 0..num_states {
-        backward_prob +=  backward_mat[[ind_state, 0]] * init_dist[ind_state] * emit_mat[[ind_state, obs[0]]];
+                self.log_beta[[ind_curr_state, ind_obs]] = log_backward_temp;
+            };
+        };
     }
 
-    backward_prob
-}
+    /// train the model with give inputs
+    pub fn train(&mut self) {
+        // iterate till convergence or max_iter reached
+        let mut iter_counter = 0;           // counter for iteration
+        let mut prev_score: f64 = 1.0;          // variable to hold previous prob of the sequence given the model
+        while iter_counter < self.max_iter {     // iterate till max_iter reached, unless converges
+
+            self.update_alpha();
+            self.update_beta();
+            self._update_proba_seq_given_model();
+            
+            self._compute_gamma();
+            self._compute_xi();
+
+            self._update_init_dist();
+            self._update_trans_mat();
+            self._update_emit_mat();
 
 
-/// Estimation of transition and emission probability matrices with initial estimates
-/// INPUTS:
-/// 
-pub fn forward_backward(
-    obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &mut Array2<f64>, emit_mat: &mut Array2<f64>, max_iter:u32) -> (Array2<f64>, Array2<f64>) {
-    
-    if trans_mat.shape()[0] != trans_mat.shape()[1] {
-        panic!("trans_mat must be a square matrix with the same number of rows and columns.")
-    }
-    if init_dist.len() != trans_mat.shape()[0] {
-        panic!("Number of states in init_dist must be the same as the one in trans_mat.")
-    }
-    if emit_mat.shape()[0] != trans_mat.shape()[0] {
-        panic!("Number of states in emit_mat must be the same as the one in trans_mat.")
-    }
+            println!("Processed iteration {:?}/{:?}: log-score = {:?}", 
+                iter_counter + 1, 
+                self.max_iter, 
+                self.proba_seq_given_model
+            );
 
-    let num_states = trans_mat.shape()[0];
-    let num_obs = emit_mat.shape()[1];
-    let len_obs = obs.len();
-
-    let mut iter_counter = 0;       // counter for iteration
-
-    // gamma[[j, t]] tracks probability of being in j-th state (along the row) at time t (along the colukn)
-    let mut gamma = Array2::<f64>::zeros((num_states, len_obs));
-
-    // xi[[i, j, t]] tracks probability of being in state i (1st dimenstion) at time t (3rd dimension) and state j (2nd dimension) at time t+1
-    let mut xi = Array3::<f64>::zeros((num_states, num_states, len_obs));
-
-    // iterate till convergence or max_iter reached
-    while iter_counter < max_iter {
-        println!("Iteration {:?}/{:?}", iter_counter + 1, max_iter);
-        let alpha = forward(obs, init_dist, trans_mat, emit_mat);       // compute forward matrix
-        let beta = backward(obs, trans_mat, emit_mat);                  // compute backword matrix
-        let prob_obs_model = get_forward_prob(&alpha);      // Prob of obs given the model as forward prob of the whole utterance
-
-        // compute gamma and xi
-        for i in 0..num_states {
-            for t in 0..len_obs {
-                
-                gamma[[i, t]] = alpha[[i, t]] * beta[[i, t]] / prob_obs_model;
-                
-                for j in 0..num_states {
-                    if t != len_obs - 1 {
-                        xi[[i, j, t]] = alpha[[i, t]] * trans_mat [[i, j]] * emit_mat[[j, obs[t+1]]] * beta[[j, t + 1]] / prob_obs_model;
-                    }
-
+            // compute change from the previous round and check for convergence
+            if iter_counter != 0 {
+                // 1-|curr_score - prev_score|/curr_score
+                let change = 1.0 - eexpo((self.proba_seq_given_model - prev_score).abs());
+                if change.abs() < CONVERGENCE_TOLERANCE {
+                    break;
                 }
             }
+
+            prev_score = self.proba_seq_given_model;
+            iter_counter += 1;
+            
+        };
+
+        println!("Iteration finished at iteration {:?}/{:?}: final log-score = {:?}", iter_counter+1, self.max_iter, self.proba_seq_given_model);
+        
+    }
+
+    /// update the probability of the observations given the current model
+    pub fn _update_proba_seq_given_model(&mut self) {
+        self.proba_seq_given_model = LOGZERO;
+        for i in 0..self.log_alpha.shape()[0] {
+            self.proba_seq_given_model = eln_sum(
+                self.proba_seq_given_model, 
+                self.log_alpha[[i, self.log_alpha.shape()[1]-1]]
+            );
+        };
+    }
+
+    /// update the probability of the observations given the current model using backward matrix
+    pub fn _update_proba_seq_given_model_beta(&mut self) {
+        self.proba_seq_given_model  = LOGZERO;
+        for ind_state in 0..self.len_obs {
+            self.proba_seq_given_model = eln_sum(
+                self.proba_seq_given_model, 
+                eln_product(
+                    eln(self.init_dist[ind_state]), 
+                    eln_product(
+                        self.log_beta[[ind_state, 0]], 
+                        eln(self.emit_mat[[ind_state, self.observations[0]]])
+                    )
+                )
+            );
+        };
+    }
+
+    // compute log_gamma matrix
+    fn _compute_gamma(&mut self) {
+        // iterate over observation sequence
+        for t in 0..self.len_obs {
+
+            // calculate numerator for each i and add each i-th value to denominator
+            for i in 0..self.num_states {
+                self.log_gamma[[i, t]] = eln_product(
+                    self.log_alpha[[i, t]], 
+                    self.log_beta[[i, t]]
+                );
+                self.log_gamma[[i, t]] = eln_product(
+                    self.log_gamma[[i, t]], 
+                    -self.proba_seq_given_model
+                );
+            };
+    
+    
         }
+    
+    }
 
-        // println!("gamma, xi:\n{:?}\n{:?}", gamma, xi);
+    // compute log_xi matrix
+    fn _compute_xi(&mut self) {
+        // iterate over observation sequence
+        for t in 0..(self.len_obs-1) {
 
-        // re-estimate trans_mat
-        for i in 0..num_states {
-            for j in 0..num_states {
+            // calculate numerator for each i -> j transition and add value to denominator
+            for i in 0..self.num_states {
+                for j in 0..self.num_states {
+                    let component1 = eln_product(
+                        self.log_alpha[[i, t]],
+                        self.trans_mat[[i, j]]
+                    );
+                    let component2 = eln_product(
+                        self.emit_mat[[j, self.observations[t+1]]],
+                        self.log_beta[[j, t+1]]
+                    );
+                    self.log_xi[[i, j, t]] = eln_product(
+                        component1, 
+                        component2      
+                    );
+                    self.log_xi[[i, j, t]] = eln_product(
+                        self.log_xi[[i, j, t]],
+                        -self.proba_seq_given_model
+                    );
+                };
+            };
+        };
+    }
+    
+    // update init_dist estimate
+    fn _update_init_dist(&mut self) {
+        self.init_dist.clear();
+        for i in 0..self.num_states {
+            self.init_dist.push(eexpo(self.log_gamma[[i, 0]]));
+        }
+    }
 
-                let mut numerator = 0.0;
-                let mut denominator = 0.0;
+    // update trans_mat estimate
+    fn _update_trans_mat(&mut self) {
+        // iterate over each i->j transitions
+        for i in 0..self.num_states {
+            for j in 0..self.num_states {
+                let mut numerator = LOGZERO;
+                let mut denominator = LOGZERO;
 
-                for t in 0..(len_obs-1) {
-
-                    numerator += xi[[i, j, t]];
-
-                    for k in 0..num_states {
-                        denominator += xi[[i, k, t]];
-                    }
+                // for each i->j transition, calculate numerator and denominator (normalizer)
+                for t in 0..(self.len_obs-1) {
+                    numerator = eln_sum(
+                        numerator,
+                        self.log_xi[[i, j, t]]
+                    );
+                    for k in 0..self.num_states {
+                        denominator = eln_sum(
+                            denominator,
+                            self.log_xi[[i, k, t]]
+                        );
+                    };
                 };
                 
-                trans_mat[[i, j]] = numerator / denominator;
+                // normalize numerator with denominator and assign its exponent to a_hat[i, j]
+                self.trans_mat[[i, j]] = eexpo(
+                    eln_product(
+                        numerator,
+                        -denominator
+                    )
+                );
+            };
+        };
+    }
 
-            }
-        }
+    // update emit_mat estimate
+    fn _update_emit_mat(&mut self) {
+        // iterate over each emissions from state j to observation k
+        for k in 0..self.num_obs {
+            for j in 0..self.num_states {
+                let mut numerator = LOGZERO;
+                let mut denominator = LOGZERO;
 
+                for t in 0..self.len_obs {
 
-        // re-estimate emit_mat
-        for i in 0..num_states {
-            for o in 0..num_obs {
-
-                let mut numerator = 0.0;
-                let mut denominator = 0.0;
-
-                for t in 0..len_obs {
-                    if obs[t] == o {
-
-                        numerator += gamma[[i, t]];
-
+                    // sum observations from state j where value k was observed
+                    if (self.observations[t] )== k {
+                        numerator = eln_sum(
+                            numerator,
+                            self.log_gamma[[j, t]]
+                        );
                     };
 
-                    denominator += gamma[[i, t]];
-                }
-                
-                emit_mat[[i, o]] = numerator / denominator;
+                    // sum over all observation from state j
+                    denominator = eln_sum(
+                        denominator,
+                        self.log_gamma[[j, t]]
+                    );
+                };
+
+                // estimate the prob of emitting k from state j
+                self.emit_mat[[j, k]] = eexpo(
+                    eln_product(
+                        numerator,
+                        -denominator
+                    )
+                );
+
             }
-        }
+            
+        };
+    }
 
-        iter_counter += 1;
+    fn _viterbi(&mut self) {
 
-    };
+    }
 
-    (trans_mat.to_owned(), emit_mat.to_owned())
 }
 
 
@@ -273,8 +395,6 @@ pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, e
         }
     }
 
-
-    // forward
     (v_mat, bp_mat)
 }
 
