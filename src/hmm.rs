@@ -188,7 +188,7 @@ impl HMM {
     /// update the probability of the observations given the current model using backward matrix
     pub fn _update_proba_seq_given_model_beta(&mut self) {
         self.proba_seq_given_model  = LOGZERO;
-        for ind_state in 0..self.len_obs {
+        for ind_state in 0..self.num_states {
             self.proba_seq_given_model = eln_sum(
                 self.proba_seq_given_model, 
                 eln_product(
