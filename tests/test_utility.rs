@@ -18,7 +18,7 @@ fn test_check_prob_vector_sums_to_one() {
 
 
 #[test]
-// #[ignore]
+#[ignore]
 fn test_check_prob_matrix_sums_to_one() {
     let good_mat = arr2(&[
         [0.11, 0.19, 0.3, 0.4],

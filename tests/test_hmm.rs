@@ -1,39 +1,77 @@
 use rusty_hmm::{hmm, log_hmm};
+use rusty_hmm::log_hmm::LogHMM;
 use ndarray::{Axis, arr2};
 
 mod common;
 
 #[test]
 #[ignore]
-fn test_log_forward_backward() {
+fn test_log_forward_backward1() {
     let (model, 
-        (mut init_dist_hat, 
-        mut trans_mat_hat, 
-        mut emit_mat_hat)
+        (init_dist_hat, 
+        trans_mat_hat, 
+        emit_mat_hat)
     ) = common::case1();
     
     let obs = model.observations;
-    let iteration = 30;
+    let iteration = 100;
 
-    let (init_hat, a_hat, b_hat) = log_hmm::log_compute_forward_backward(
-        &obs, 
-        &mut init_dist_hat, 
-        &mut trans_mat_hat, 
-        &mut emit_mat_hat, 
-        iteration);
+    let mut hmm = LogHMM::new(
+        obs,
+        init_dist_hat,
+        trans_mat_hat,
+        emit_mat_hat,
+        iteration
+    );
+
+    hmm.train();
     
-    println!("=====================================");
+    println!("==================== Testing LogHMM ====================");
     println!("Actual init_mat\n{:?}", model.init_dist);
-    println!("Estimated init_mat\n{:?}", init_hat);
+    println!("Estimated init_mat\n{:?}", hmm.init_dist);
 
     println!("Actual trans_mat\n{:?}", model.trans_mat);
-    println!("Estimated trans_mat\n{:?}", a_hat);
+    println!("Estimated trans_mat\n{:?}", hmm.trans_mat);
 
     println!("Actual emit_mat\n{:?}", model.emit_mat);
-    println!("Estimated emit_mat\n{:?}", b_hat);
+    println!("Estimated emit_mat\n{:?}", hmm.emit_mat);
     
 }
 
+
+#[test]
+// #[ignore]
+fn test_log_forward_backward2() {
+    let (model, 
+        (init_dist_hat, 
+        trans_mat_hat, 
+        emit_mat_hat)
+    ) = common::case2();
+    
+    let obs = model.observations;
+    let iteration = 100;
+
+    let mut hmm = LogHMM::new(
+        obs,
+        init_dist_hat,
+        trans_mat_hat,
+        emit_mat_hat,
+        iteration
+    );
+
+    hmm.train();
+    
+    println!("==================== Testing LogHMM ====================");
+    println!("Actual init_mat\n{:?}", model.init_dist);
+    println!("Estimated init_mat\n{:?}", hmm.init_dist);
+
+    println!("Actual trans_mat\n{:?}", model.trans_mat);
+    println!("Estimated trans_mat\n{:?}", hmm.trans_mat);
+
+    println!("Actual emit_mat\n{:?}", model.emit_mat);
+    println!("Estimated emit_mat\n{:?}", hmm.emit_mat);
+    
+}
 
 #[test]
 #[ignore]
@@ -85,7 +123,7 @@ fn test_regular_vs_log_probs() {
     );
 
     println!("Computing log_backward_prob");
-    let log_backward_prob = log_hmm::loc_compute_backward_prob(
+    let log_backward_prob = log_hmm::log_compute_backward_prob(
         &log_hmm::log_compute_backward_matrix(&obs, &model.trans_mat, &model.emit_mat),
         &obs, &model.init_dist, &model.emit_mat
     );
