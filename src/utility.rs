@@ -1,7 +1,7 @@
 use rand::Rng;
 use ndarray::{Array2, Axis};
 use std::vec::Vec;
-use float_cmp;
+use float_cmp::approx_eq;
 
 /// Create a new vector with cumulative sum up to each element of the input vector.
 pub fn calculate_vec_elementwise_cumulative_sum(vector: &Vec<f64>) -> Vec<f64> {
@@ -35,7 +35,7 @@ pub fn calculate_array2_elementwise_cumulative_sum(array: &Array2<f64>, ind_row:
 // Randomly pick a state (i.e. index in the original prob vector) using the cumulative prob vector.
 pub fn pick_index_from_cumulative_prob_vector(cumu_prob_vector: &Vec<f64>) -> usize {
     let cumu_prob = cumu_prob_vector[cumu_prob_vector.len() - 1];
-    if !(cumu_prob <= 1.00001 && cumu_prob >= 0.99999) {
+    if !approx_eq!(f64, cumu_prob, 1.0, epsilon=0.00001) {
         panic!("Cumulative probability does not sum up to 1.0.")
     }
 
@@ -60,15 +60,13 @@ pub fn check_prob_vector_sums_to_one(vector: &Vec<f64>) -> bool {
     for e in vector.iter() {
         sum += e;
     }
-
-    sum == 1.0
-
+    approx_eq!(f64, sum, 1.0, epsilon=0.0001)
 }
 
 /// to be implemented....
 pub fn check_prob_matrix_sums_to_one(matrix: &Array2<f64>) -> bool {
     for (i, row) in matrix.axis_iter(Axis(0)).enumerate() {
-        if !(row.sum() <= 1.00001 && row.sum() >= 0.99999) {
+        if !approx_eq!(f64, row.sum(), 1.0, epsilon=0.0001) {
             println!("{}-th row does not add up to 1.0. {:?}", i, matrix.sum_axis(Axis(1)));
             return false;
         };

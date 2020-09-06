@@ -6,7 +6,7 @@ mod common;
 
 #[test]
 #[ignore]
-fn test_log_forward_backward1() {
+fn test_hmm1() {
     let (model, 
         (init_dist_hat, 
         trans_mat_hat, 
@@ -42,8 +42,8 @@ fn test_log_forward_backward1() {
 
 
 #[test]
-// #[ignore]
-fn test_log_forward_backward2() {
+#[ignore]
+fn test_hmm2() {
     let (model, 
         (init_dist_hat, 
         trans_mat_hat, 

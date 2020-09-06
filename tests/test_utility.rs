@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use ndarray::arr2;
 
 #[test]
-#[ignore]
+// #[ignore]
 fn test_check_prob_vector_sums_to_one() {
     let good_vec = vec![0.11, 0.19, 0.3, 0.4];
-    let bad_vec = vec![0.11, 0.19, 0.3, 0.42];
+    let bad_vec = vec![0.11, 0.19, 0.3, 0.4002];
 
     let good_res = utility::check_prob_vector_sums_to_one(&good_vec);
     let bad_res = utility::check_prob_vector_sums_to_one(&bad_vec);
@@ -18,7 +18,7 @@ fn test_check_prob_vector_sums_to_one() {
 
 
 #[test]
-#[ignore]
+// #[ignore]
 fn test_check_prob_matrix_sums_to_one() {
     let good_mat = arr2(&[
         [0.11, 0.19, 0.3, 0.4],
@@ -26,7 +26,7 @@ fn test_check_prob_matrix_sums_to_one() {
         [0.291, 0.21, 0.34, 0.159]
     ]);
     let bad_mat = arr2(&[
-        [0.11, 0.19, 0.3, 0.40001],
+        [0.11, 0.19, 0.30001, 0.4001],
         [0.0, 0.5, 0.4, 0.1],
         [0.25, 0.31, 0.34, 0.1]
     ]);
@@ -34,8 +34,8 @@ fn test_check_prob_matrix_sums_to_one() {
     let good_res = utility::check_prob_matrix_sums_to_one(&good_mat);
     let bad_res = utility::check_prob_matrix_sums_to_one(&bad_mat);
 
-    println!("{:?} => {:?}", good_mat, good_res);
-    println!("{:?} => {:?}", bad_mat, bad_res);
+    println!("{:?} => {:?}\n", good_mat, good_res);
+    println!("{:?} => {:?}\n", bad_mat, bad_res);
 }
 
 
