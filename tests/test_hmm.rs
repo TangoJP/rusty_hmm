@@ -6,7 +6,7 @@ use float_cmp::approx_eq;
 mod common;
 
 #[test]
-#[ignore]
+// #[ignore]
 fn test_hmm1() {
     let (model, 
         (init_dist_hat, 
@@ -39,6 +39,10 @@ fn test_hmm1() {
     
     println!("trans_mat rows add up to 1.0?: {:.4e}", hmm.trans_mat.sum_axis(Axis(1)));
     println!("emit_mat rows add up to 1.0?: {:.4e}", hmm.emit_mat.sum_axis(Axis(1)));
+
+    println!("Actual state sequence (first 50): {:?}", &model.state_sequence[0..50]);
+    println!("Estimated state sequence (first 50): {:?}", &hmm.best_state_sequence[0..50]);
+
 }
 
 
