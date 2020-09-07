@@ -12,14 +12,14 @@ pub fn case1() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
     model.set_init_dist_vector(vec![0.5, 0.5]);
     model.set_transition_matrix(
         arr2(&[
-            [0.9, 0.1],
-            [0.1, 0.9]
+            [0.7, 0.3],
+            [0.3, 0.7]
         ])
     );
     model.set_emission_matrix(
         arr2(&[
-            [0.1, 0.9],
-            [0.9, 0.1]
+            [0.01, 0.99],
+            [0.99, 0.01]
         ])
     );
 

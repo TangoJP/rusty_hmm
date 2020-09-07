@@ -25,15 +25,19 @@ pub struct HMM {
     pub trans_mat: Array2<f64>,
     pub emit_mat: Array2<f64>,
     pub proba_seq_given_model: f64,
+    input_init_dist: Vec<f64>,
+    input_trans_mat:Array2<f64>,
+    input_emit_mat:Array2<f64>, 
     log_alpha: Array2<f64>,
     log_beta: Array2<f64>,
     log_gamma: Array2<f64>,
     log_xi: Array3<f64>,
-    log_viterbi: Array2<f64>,
+    pub log_viterbi: Array2<f64>,
     backpointer_mat: Array2<usize>,
     best_backpointer: usize,
     pub best_state_sequence: Vec<usize>,
     max_iter: i32,
+    
 }
 
 impl HMM {
@@ -57,10 +61,13 @@ impl HMM {
             len_obs: length,
             num_states: number_of_states,
             num_obs: emit_mat.shape()[1],
-            init_dist,
-            trans_mat,
-            emit_mat,
+            init_dist: init_dist.clone(),
+            trans_mat: trans_mat.clone(),
+            emit_mat: emit_mat.clone(),
             proba_seq_given_model: LOGZERO,
+            input_init_dist: init_dist,
+            input_trans_mat: trans_mat,
+            input_emit_mat: emit_mat,
             log_alpha: Array2::<f64>::zeros((number_of_states, length)),
             log_beta: Array2::<f64>::zeros((number_of_states, length)),
             log_gamma: Array2::<f64>::zeros((number_of_states, length)),
@@ -363,26 +370,28 @@ impl HMM {
                     let v_ = eln_product(
                         self.log_viterbi[[ind_prev_state, ind_obs-1]], 
                         eln_product(
-                                self.trans_mat[[ind_prev_state, ind_curr_state]],
+                                eln(self.trans_mat[[ind_prev_state, ind_curr_state]]),
                                 eln(self.emit_mat[[ind_curr_state, self.observations[ind_obs]]])
                         )
                     );
 
-                    if v_ > vprob_temp {
+                    if (v_ > vprob_temp) || (vprob_temp.is_nan()) {
                         vprob_temp = v_;
                         bp_ind_temp = ind_prev_state;
                     }
+
                 }
 
                 self.log_viterbi[[ind_curr_state, ind_obs]] = vprob_temp;
                 self.backpointer_mat[[ind_curr_state, ind_obs]] = bp_ind_temp;
+            
             }
         }
 
-        let mut best_path_prob = 0.0;
+        let mut best_path_prob = LOGZERO;
         for (i, row) in self.log_viterbi.axis_iter(Axis(0)).enumerate() {
             let prob_temp = row[self.len_obs - 1];
-            if  prob_temp > best_path_prob {
+            if  (prob_temp > best_path_prob) || (best_path_prob.is_nan()) {
                 best_path_prob = prob_temp;
                 self.best_backpointer = i;
             }
@@ -421,7 +430,7 @@ impl HMM {
 pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> (Array2<f64>, Array2<usize>) /*f64*/ {
     let len_obs = obs.len();                    // length of observations
     let num_states = trans_mat.shape()[0];      // number of possible states
-    let mut log_viterbi_mat = Array2::<f64>::zeros((num_states, len_obs));  // viterbi matrix
+    let mut viterbi_mat = Array2::<f64>::zeros((num_states, len_obs));  // viterbi matrix
     let mut backpointer_mat = Array2::<usize>::ones((num_states, len_obs));  // backpointer matrix
 
     // if the shape doesn't match, raise exception
@@ -433,7 +442,7 @@ pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, e
 
     // initialize
     for ind_state in 0..num_states {
-        log_viterbi_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0]]];
+        viterbi_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0]]];
         backpointer_mat[[ind_state, 0]] = 0;
     };
 
@@ -445,21 +454,21 @@ pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, e
             let mut vprob_temp = 0.0;
             let mut bp_ind_temp = 0;           
             for ind_prev_state in 0..num_states{
-                let v_ = log_viterbi_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs]]];
+                let v_ = viterbi_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs]]];
                 if v_ > vprob_temp {
                     vprob_temp = v_;
                     bp_ind_temp = ind_prev_state;
                 }
             }
 
-            log_viterbi_mat[[ind_curr_state, ind_obs]] = vprob_temp;
+            viterbi_mat[[ind_curr_state, ind_obs]] = vprob_temp;
             backpointer_mat[[ind_curr_state, ind_obs]] = bp_ind_temp;
         }
     }
 
     let mut best_path_prob = 0.0;
     // let mut best_bp = 0;
-    for row in log_viterbi_mat.axis_iter(Axis(0)) {//.enumerate() {
+    for row in viterbi_mat.axis_iter(Axis(0)) {//.enumerate() {
         let prob_temp = row[len_obs - 1];
         if  prob_temp > best_path_prob {
             best_path_prob = prob_temp;
@@ -467,7 +476,7 @@ pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, e
         }
     }
 
-    (log_viterbi_mat, backpointer_mat)
+    (viterbi_mat, backpointer_mat)
 }
 
 

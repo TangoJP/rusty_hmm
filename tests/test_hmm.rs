@@ -1,6 +1,7 @@
+use rusty_hmm::hmm;
 use rusty_hmm::hmm::HMM;
 use rusty_hmm::utility::{eexpo};//check_prob_matrix_sums_to_one, check_prob_vector_sums_to_one};
-use ndarray::{Axis, arr2};
+use ndarray::{Axis, arr2, s};
 use float_cmp::approx_eq;
 
 mod common;
@@ -41,7 +42,9 @@ fn test_hmm1() {
     println!("emit_mat rows add up to 1.0?: {:.4e}", hmm.emit_mat.sum_axis(Axis(1)));
 
     println!("Actual state sequence (first 50): {:?}", &model.state_sequence[0..50]);
-    println!("Estimated state sequence (first 50): {:?}", &hmm.best_state_sequence[0..50]);
+    println!(" Est.  state sequence (first 50): {:?}", &hmm.best_state_sequence[0..50]);
+
+    // println!("Viterbi Matrix: {:?}", hmm.log_viterbi.slice(s![.., 0..50]));
 
 }
 
@@ -80,6 +83,10 @@ fn test_hmm2() {
     
     println!("trans_mat rows add up to 1.0?: {:.4e}", hmm.trans_mat.sum_axis(Axis(1)));
     println!("emit_mat rows add up to 1.0?: {:.4e}", hmm.emit_mat.sum_axis(Axis(1)));
+
+    println!("Actual state sequence (first 50): {:?}", &model.state_sequence[100..150]);
+    println!("Estimated state sequence (first 50): {:?}", &hmm.best_state_sequence[100..150]);
+
 }
 
 
@@ -118,42 +125,43 @@ fn test_forward_vs_backward_probs() {
 }
 
 
-// #[test]
-// #[ignore]
-// fn test_viterbi() {
-//     // thinking coin flip with a normal (state 0) and fixed coin (state 1)
-//     // assume observation 1 = head, 0 = tail
-//     let (obs, 
-//         init_dist, 
-//         trans_mat, 
-//         emit_mat
-//     ) = common::case3();
+#[test]
+#[ignore]
+fn test_viterbi() {
+    // thinking coin flip with a normal (state 0) and fixed coin (state 1)
+    // assume observation 1 = head, 0 = tail
+    let (obs, 
+        init_dist, 
+        trans_mat, 
+        emit_mat
+    ) = common::case3();
 
-//     let (v, b) = hmm::viterbi(
-//          &obs, 
-//          &init_dist, 
-//          &trans_mat, 
-//          &emit_mat);
+    let (v, b) = hmm::viterbi(
+         &obs, 
+         &init_dist, 
+         &trans_mat, 
+         &emit_mat);
     
-//     let mut best_path_prob = 0.0;
-//     let mut best_bp = 0;
-//     for (i, row) in v.axis_iter(Axis(0)).enumerate() {
-//         let prob_temp = row[obs.len() - 1];
-//         if  prob_temp > best_path_prob {
-//             best_path_prob = prob_temp;
-//             best_bp = i;
-//         }
-//     }
+    let mut best_path_prob = 0.0;
+    let mut best_bp = 0;
+    for (i, row) in v.axis_iter(Axis(0)).enumerate() {
+        let prob_temp = row[obs.len() - 1];
+        if  prob_temp > best_path_prob {
+            best_path_prob = prob_temp;
+            best_bp = i;
+        }
+    }
 
-//     let bestpath = hmm::traceback_viterbi(&b, best_bp);
+    let bestpath = hmm::traceback_viterbi(&b, best_bp);
 
-//     println!("Viterbi Matrix with shape{:?}\n{:?}", v.shape(), v);
-//     println!("Backtrace Matrix with shape{:?}\n{:?}", b.shape(), b);
+    println!("Viterbi Matrix with shape{:?}\n{:?}", v.shape(), v);
+    println!("Backtrace Matrix with shape{:?}\n{:?}", b.shape(), b);
 
-//     println!("Viterbi probability = {:?}", best_path_prob);
-//     println!("Best Path = {:?}", bestpath);
+    println!("Viterbi probability = {:?}", best_path_prob);
+    println!("Actual Path = {:?}", bestpath);
+    println!("Best Path = {:?}", bestpath);
 
 
-// }
+}
 
 
