@@ -1,3 +1,12 @@
+//
+//  Struct to generate mock HMM-generated chains/observations
+//  
+//  MockHMMModel can be used to generate a Markov chain based using the 
+//  hidden states specified by the given transition and emission matrices.
+//  The struct can be used to generate test chains.
+//
+
+
 use ndarray::Array2;
 use std::vec::Vec;
 use super::utility;

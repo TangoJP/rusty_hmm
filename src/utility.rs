@@ -1,9 +1,23 @@
+//
+//  Library of utility functions.
+//
+//  There are three kinds of utility functions implemented here:
+//  1. functions used for random sampling
+//  2. functions used to check for matrix integrity
+//  3. functions used for natural log calculations
+//
+//
+
+
 use rand::Rng;
 use ndarray::{Array2, Axis};
 use std::vec::Vec;
 use float_cmp::approx_eq;
 
-/// Create a new vector with cumulative sum up to each element of the input vector.
+const FLOAT_CMP_EPSILON_TOLERANCE:f64 = 0.0001;
+
+/// The following are the functions used for sampling
+// Create a new vector with cumulative sum up to each element of the input vector.
 pub fn calculate_vec_elementwise_cumulative_sum(vector: &Vec<f64>) -> Vec<f64> {
 
     let mut cumu_vector = Vec::<f64>::with_capacity(vector.len());  // create a new empty vec
@@ -17,7 +31,8 @@ pub fn calculate_vec_elementwise_cumulative_sum(vector: &Vec<f64>) -> Vec<f64> {
     cumu_vector
 
 }
-/// Create a new vector with cumulative sum up to each element in a row in an array.
+
+// Create a new vector with cumulative sum up to each element in a row in an array.
 pub fn calculate_array2_elementwise_cumulative_sum(array: &Array2<f64>, ind_row: usize) -> Vec<f64> {
 
     let mut cumu_vector = Vec::<f64>::with_capacity(array.shape()[1]);  // create a new empty vec
@@ -54,19 +69,21 @@ pub fn pick_index_from_cumulative_prob_vector(cumu_prob_vector: &Vec<f64>) -> us
 }
 
 
-/// to be implemented....
+
+/// The following are the functions used to check probability matrix integrity
+// check if the values in a vector sums to 1.0 (float comp. tolerance = FLOAT_CMP_EPSILON_TOLERANCE)
 pub fn check_prob_vector_sums_to_one(vector: &Vec<f64>) -> bool {
     let mut sum = 0.0;
     for e in vector.iter() {
         sum += e;
     }
-    approx_eq!(f64, sum, 1.0, epsilon=0.0001)
+    approx_eq!(f64, sum, 1.0, epsilon=FLOAT_CMP_EPSILON_TOLERANCE)
 }
 
-/// to be implemented....
+// check if the values in each row of a matrix sums to 1.0 (float comp. tolerance = FLOAT_CMP_EPSILON_TOLERANCE)
 pub fn check_prob_matrix_sums_to_one(matrix: &Array2<f64>) -> bool {
     for (i, row) in matrix.axis_iter(Axis(0)).enumerate() {
-        if !approx_eq!(f64, row.sum(), 1.0, epsilon=0.0001) {
+        if !approx_eq!(f64, row.sum(), 1.0, epsilon=FLOAT_CMP_EPSILON_TOLERANCE) {
             println!("{}-th row does not add up to 1.0. {:?}", i, matrix.sum_axis(Axis(1)));
             return false;
         };
@@ -75,6 +92,8 @@ pub fn check_prob_matrix_sums_to_one(matrix: &Array2<f64>) -> bool {
 }
 
 
+
+/// The following are the functions used for natural log calculations
 // extended exponential function to deal with NAN
 pub fn eexpo(x: f64) -> f64 {
     if x.is_nan() {

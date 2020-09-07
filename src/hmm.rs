@@ -1,9 +1,9 @@
 //
-//  Hidden Markov Model implementation following Speech and Language Processing. 
-//  Daniel Jurafsky & James H. Martin. Copyright c 2019 (Draft of October 2, 2019).
+//  Hidden Markov Model implementation
 //
-//  Log calculation version of hmm.rs following 
-//  http://bozeman.genome.washington.edu/compbio/mbt599_2006/hmm_scaling_revised.pdf
+//  References:
+//  "Speech and Language Processing" by Daniel Jurafsky & James H. Martin. Copyright c 2019 (Draft of October 2, 2019).
+//  For log calculations: http://bozeman.genome.washington.edu/compbio/mbt599_2006/hmm_scaling_revised.pdf
 //
 //
 
