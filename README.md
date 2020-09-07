@@ -6,6 +6,7 @@ Used the following as references:
 - http://bozeman.genome.washington.edu/compbio/mbt599_2006/hmm_scaling_revised.pdf
 
 
+On HMM struct implemented here:
 - HMM struct takes in observations and initial estimates of the initial state distribution, transition matrix, and emission matrix.
 - Its train() function recursively updates the model
 - Best estimate of the hidden state sequence can be accessed after training via .best_state_sequence attribute.
