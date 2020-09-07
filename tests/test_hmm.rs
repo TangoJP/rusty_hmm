@@ -1,8 +1,6 @@
-use rusty_hmm::hmm;
 use rusty_hmm::hmm::HMM;
-use rusty_hmm::utility::{eexpo};//check_prob_matrix_sums_to_one, check_prob_vector_sums_to_one};
-use ndarray::{Axis, arr2, s};
-use float_cmp::approx_eq;
+use rusty_hmm::utility::eexpo;
+use ndarray::Axis;
 
 mod common;
 

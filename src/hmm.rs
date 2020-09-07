@@ -12,10 +12,12 @@ use std::vec::Vec;
 use ndarray::{Array2, Array3, Axis};
 use super::utility::{eexpo, eln, eln_sum, eln_product};
 
+
 const LOGZERO: f64 = f64::NAN;                  // constant for log probability calculations
 const CONVERGENCE_TOLERANCE: f64 = 0.00001;     // pre-set convergence level to break the iterations
 
 
+#[allow(dead_code)]
 pub struct HMM {
     pub observations: Vec<usize>,       // sequence of observations. each obs. value corresponds to column index in the emission matrix
     pub len_obs: usize,                 // length of the observation

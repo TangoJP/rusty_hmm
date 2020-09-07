@@ -1,6 +1,7 @@
 use rusty_hmm::generative::MockHMMModel;
 use ndarray::{arr2, Array2};
 
+#[allow(dead_code)]
 pub fn case1() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
     // Create test sequence
     let mut model = MockHMMModel::new(
@@ -41,7 +42,7 @@ pub fn case1() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
 
 }
 
-
+#[allow(dead_code)]
 pub fn case2() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
     // Create test sequence
     let mut model = MockHMMModel::new(
@@ -86,7 +87,7 @@ pub fn case2() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
 
 }
 
-
+#[allow(dead_code)]
 pub fn case3() -> (Vec<usize>, Vec<f64>, Array2<f64>, Array2<f64>) {
     // thinking coin flip with a normal (state 0) and fixed coin (state 1)
     // assume observation 1 = head, 0 = tail
