@@ -4,7 +4,7 @@ use ndarray::{arr2, Array2};
 pub fn case1() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
     // Create test sequence
     let mut model = MockHMMModel::new(
-        200000,
+        300000,
         2,
         2,
     );
@@ -31,8 +31,8 @@ pub fn case1() -> (MockHMMModel, (Vec<f64>, Array2<f64>, Array2<f64>)){
         [0.3, 0.7]
     ]);
     let emit_mat = arr2(&[
-        [0.7, 0.3],
-        [0.3, 0.7]
+        [0.4, 0.6],
+        [0.6, 0.4]
     ]);
     
     let initial_condition = (init_dist, trans_mat, emit_mat);

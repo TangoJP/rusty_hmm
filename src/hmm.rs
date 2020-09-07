@@ -12,31 +12,31 @@ use std::vec::Vec;
 use ndarray::{Array2, Array3, Axis};
 use super::utility::{eexpo, eln, eln_sum, eln_product};
 
-const LOGZERO: f64 = f64::NAN;
-const CONVERGENCE_TOLERANCE: f64 = 0.00001;  
+const LOGZERO: f64 = f64::NAN;                  // constant for log probability calculations
+const CONVERGENCE_TOLERANCE: f64 = 0.00001;     // pre-set convergence level to break the iterations
 
 
 pub struct HMM {
-    pub observations: Vec<usize>,
-    pub len_obs: usize,
-    pub num_states: usize,
-    pub num_obs: usize,
-    pub init_dist: Vec<f64>,
-    pub trans_mat: Array2<f64>,
-    pub emit_mat: Array2<f64>,
-    pub proba_seq_given_model: f64,
-    input_init_dist: Vec<f64>,
-    input_trans_mat:Array2<f64>,
-    input_emit_mat:Array2<f64>, 
-    log_alpha: Array2<f64>,
-    log_beta: Array2<f64>,
-    log_gamma: Array2<f64>,
-    log_xi: Array3<f64>,
-    pub log_viterbi: Array2<f64>,
-    backpointer_mat: Array2<usize>,
-    best_backpointer: usize,
-    pub best_state_sequence: Vec<usize>,
-    max_iter: i32,
+    pub observations: Vec<usize>,       // sequence of observations. each obs. value corresponds to column index in the emission matrix
+    pub len_obs: usize,                 // length of the observation
+    pub num_states: usize,              // number of possible hidden states
+    pub num_obs: usize,                 // number of possible observation values.
+    pub init_dist: Vec<f64>,            // initial distribution of states. index corresponds to row index of emission matrix and row * col indices of transition matrix.
+    pub trans_mat: Array2<f64>,         // transition matrix
+    pub emit_mat: Array2<f64>,          // emission matrix
+    pub proba_seq_given_model: f64,     // probability of the whole observation given the model (i.e. trans_mat & emit_mat)
+    input_init_dist: Vec<f64>,          // initially input initi_dist, i.e. pre-training
+    input_trans_mat:Array2<f64>,        // initially input trans_mat, i.e. pre-training
+    input_emit_mat:Array2<f64>,         // initially input emit_mat, i.e. pre-training
+    log_alpha: Array2<f64>,             // log version of forward matrix. each element is ln() of proba calculated by forward algo
+    log_beta: Array2<f64>,              // log version of backward matrix. each element is ln() of proba calculated by backword algo
+    log_gamma: Array2<f64>,             // log version of gamma matrix each element is ln() of proba calculated by Baum-Welch (forward-backward) algo
+    log_xi: Array3<f64>,                // log version of xi matrix each element is ln() of proba calculated by Baum-Welch (forward-backward) algo
+    log_viterbi: Array2<f64>,           // log version of Viterbi matrix. each element is ln() of proba calculated by Viterbi algo
+    backpointer_mat: Array2<usize>,     // log version of backpointer matrix. each element is ln() of proba calculated by Viterbi algo
+    best_backpointer: usize,            // bestpointer for the state for the last observation (i.e. index of len_obs-1)
+    pub best_state_sequence: Vec<usize>,    // best state sequence backtraced from backpointer_mat and best_backpointer
+    max_iter: i32,                      // maximum number of iterations
     
 }
 
@@ -418,90 +418,3 @@ impl HMM {
     }
 
 }
-
-
-/// Calculate viterbi probability
-///
-/// INPUTS:
-/// obs: sequence of observations represented as indices in emit_mat
-/// init_dist: initial distribuition of states. it assumes its index corresponds to row index of trans_mat and emit_mat (for the former, both row & column indices)
-/// trans_mat: state transition matrix
-/// emit_mat: emission matrix. sates along the row, possible observations along the column
-pub fn viterbi(obs:&Vec<usize>, init_dist: &Vec<f64>, trans_mat: &Array2<f64>, emit_mat: &Array2<f64>) -> (Array2<f64>, Array2<usize>) /*f64*/ {
-    let len_obs = obs.len();                    // length of observations
-    let num_states = trans_mat.shape()[0];      // number of possible states
-    let mut viterbi_mat = Array2::<f64>::zeros((num_states, len_obs));  // viterbi matrix
-    let mut backpointer_mat = Array2::<usize>::ones((num_states, len_obs));  // backpointer matrix
-
-    // if the shape doesn't match, raise exception
-    if emit_mat.shape()[0] != num_states {
-        panic!{"Number of rows in emit_mat does not match with that of trans_mat."}
-    };
-
-    // if sume along the row for emit_mat does not equal 1 { panic! }
-
-    // initialize
-    for ind_state in 0..num_states {
-        viterbi_mat[[ind_state, 0]] = init_dist[ind_state] * emit_mat[[ind_state, obs[0]]];
-        backpointer_mat[[ind_state, 0]] = 0;
-    };
-
-
-    for ind_obs in 1..len_obs {                     // for each observation along the observations sequence
-        for ind_curr_state in 0..num_states {       // for each state
-            // calculate the probability of seeing the observation obs[ind_obs] for state ind_current_state as the max probabilities
-            // of coming from all potential paths.
-            let mut vprob_temp = 0.0;
-            let mut bp_ind_temp = 0;           
-            for ind_prev_state in 0..num_states{
-                let v_ = viterbi_mat[[ind_prev_state, ind_obs-1]] * trans_mat[[ind_prev_state, ind_curr_state]] * emit_mat[[ind_curr_state, obs[ind_obs]]];
-                if v_ > vprob_temp {
-                    vprob_temp = v_;
-                    bp_ind_temp = ind_prev_state;
-                }
-            }
-
-            viterbi_mat[[ind_curr_state, ind_obs]] = vprob_temp;
-            backpointer_mat[[ind_curr_state, ind_obs]] = bp_ind_temp;
-        }
-    }
-
-    let mut best_path_prob = 0.0;
-    // let mut best_bp = 0;
-    for row in viterbi_mat.axis_iter(Axis(0)) {//.enumerate() {
-        let prob_temp = row[len_obs - 1];
-        if  prob_temp > best_path_prob {
-            best_path_prob = prob_temp;
-            // best_bp = i;
-        }
-    }
-
-    (viterbi_mat, backpointer_mat)
-}
-
-
-/// Traceback the backpointers on the backpointer matrix from Viterbi algorithm
-/// INPUTS:
-/// backpointer: Array2 containing the backpointers from Viterbi algo
-/// start: the last backpointer from Viterbi algorithm.
-pub fn traceback_viterbi(backpointer: &Array2<usize>, start: usize) -> Vec<usize> {
-    let path_length = backpointer.shape()[1];
-    let mut path = Vec::<usize>::with_capacity(path_length);
-
-    let mut i = path_length - 1;
-    let mut j = start;
-    path.push(start);
-    while i > 0 {
-        let prev_state = backpointer[[j, i]];
-        path.push(prev_state);
-        j = prev_state;
-        i -= 1;
-    }
-
-    path.reverse();
-
-    path
-
-}
-
-
